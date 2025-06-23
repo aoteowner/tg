@@ -4,12 +4,10 @@ part of '../tg.dart';
 class AuthorizationKey {
   /// Constructor.
   AuthorizationKey(this.id, this.key, this.salt)
-      : _idSeq = _MessageIdSequenceGenerator(),
-        _msgsToAck = {},
-        assert(id != 0, 'Id must not be zero.'),
+      : assert(id != 0, 'Id must not be zero.'),
         assert(key.length == 256, 'Key must be 256 bytes.');
 
-  AuthorizationKey._(this.id, this.key, this.salt, this._idSeq, this._msgsToAck)
+  AuthorizationKey._(this.id, this.key, this.salt)
       : assert(id != 0, 'Id must not be zero.'),
         assert(key.length == 256, 'Key must be 256 bytes.');
 
@@ -23,10 +21,6 @@ class AuthorizationKey {
 
     return AuthorizationKey(id, key, salt);
   }
-
-  final _MessageIdSequenceGenerator _idSeq;
-
-  final Set<int> _msgsToAck;
 
   ///  Auth Key Id (int64).
   final int id;

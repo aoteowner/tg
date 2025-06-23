@@ -6,17 +6,17 @@ class _DiffieHellman {
     this.receiver,
     this.obfuscation,
     this._idSeq,
-    this._msgsToAck,
   ) {
     receiver.listen(_onMessage);
   }
 
   final Obfuscation? obfuscation;
-  final Stream<TlObject> receiver;
+  final Stream<_Frame> receiver;
   final Sink<Iterable<int>> sender;
-  final Set<int> _msgsToAck;
 
-  void _onMessage(TlObject msg) {
+  void _onMessage(_Frame frame) {
+    final msg = frame.message;
+
     if (msg is ResPQ) {
       final key = msg.nonce.toString();
 
@@ -331,8 +331,6 @@ class _DiffieHellman {
       authKeyID,
       authKey,
       saltLeft ^ saltRight,
-      _idSeq,
-      _msgsToAck,
     );
 
     return ak;

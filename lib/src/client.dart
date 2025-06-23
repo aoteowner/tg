@@ -7,11 +7,20 @@ class Client extends t.Client {
     required this.obfuscation,
     required this.authorizationKey,
   }) {
-    _transformer = _EncryptedTransformer(this);
+    _transformer = _BaseTransformer(
+      receiver,
+      _msgsToAck,
+      obfuscation,
+      authorizationKey.key,
+    );
 
-    _transformer.stream.listen((v) {
-      _handleIncomingMessage(v);
-    });
+    _transformer.stream.listen(_listener);
+  }
+
+  int? _seqno;
+  void _listener(_Frame frame) {
+    _seqno = frame.seqno;
+    _handleIncomingMessage(frame.message);
   }
 
   static Future<AuthorizationKey> authorize(
@@ -21,7 +30,7 @@ class Client extends t.Client {
   ) async {
     final Set<int> msgsToAck = {};
 
-    final uot = _UnEncryptedTransformer(
+    final uot = _BaseTransformer.unEncrypted(
       receiver,
       msgsToAck,
       obfuscation,
@@ -33,7 +42,6 @@ class Client extends t.Client {
       uot.stream,
       obfuscation,
       idSeq,
-      msgsToAck,
     );
     final ak = await dh.exchange();
 
@@ -50,7 +58,7 @@ class Client extends t.Client {
   final Stream<Uint8List> receiver;
   final Sink<List<int>> sender;
 
-  late final _EncryptedTransformer _transformer;
+  late final _BaseTransformer _transformer;
 
   final Map<int, Completer<t.Result>> _pending = {};
 
@@ -59,66 +67,69 @@ class Client extends t.Client {
   Stream<UpdatesBase> get stream => _streamController.stream;
 
   void _handleIncomingMessage(TlObject msg) {
-    if (msg is UpdatesBase) {
-      _streamController.add(msg);
-    }
+    switch (msg) {
+      case UpdatesBase():
+        _streamController.add(msg);
+      case MsgContainer():
+        for (final message in msg.messages) {
+          _handleIncomingMessage(message);
+        }
 
-    //
-    if (msg is MsgContainer) {
-      for (final message in msg.messages) {
-        _handleIncomingMessage(message);
-      }
+      case Msg():
+        _handleIncomingMessage(msg.body);
+      case BadMsgNotification():
+        final badMsgId = msg.badMsgId;
+        final task = _pending[badMsgId];
+        if (_seqno != null) {
+          _idSeq._seqno = _seqno!;
+        }
+        task?.completeError(BadMessageException._(msg));
+        _pending.remove(badMsgId);
+      case RpcResult():
+        final reqMsgId = msg.reqMsgId;
+        final task = _pending[reqMsgId];
 
-      return;
-    } else if (msg is Msg) {
-      _handleIncomingMessage(msg.body);
-      return;
-    } else if (msg is BadMsgNotification) {
-      final badMsgId = msg.badMsgId;
-      final task = _pending[badMsgId];
-      task?.completeError(BadMessageException._(msg));
-      _pending.remove(badMsgId);
-    } else if (msg is RpcResult) {
-      final reqMsgId = msg.reqMsgId;
-      final task = _pending[reqMsgId];
+        final result = msg.result;
 
-      final result = msg.result;
+        if (result is RpcError) {
+          task?.complete(t.Result.error(result));
+          _pending.remove(reqMsgId);
+          return;
+        } else if (result is GzipPacked) {
+          final gZippedData =
+              const GZipDecoder().decodeBytes(result.packedData);
 
-      if (result is RpcError) {
-        task?.complete(t.Result.error(result));
+          final newObj =
+              BinaryReader(Uint8List.fromList(gZippedData)).readObject();
+
+          final newRpcResult = RpcResult(reqMsgId: reqMsgId, result: newObj);
+          _handleIncomingMessage(newRpcResult);
+          return;
+        }
+
+        task?.complete(t.Result.ok(msg.result));
         _pending.remove(reqMsgId);
-        return;
-      } else if (result is GzipPacked) {
-        final gZippedData = GZipDecoder().decodeBytes(result.packedData);
-
+      case GzipPacked():
+        final gZippedData = GZipDecoder().decodeBytes(msg.packedData);
         final newObj =
             BinaryReader(Uint8List.fromList(gZippedData)).readObject();
-
-        final newRpcResult = RpcResult(reqMsgId: reqMsgId, result: newObj);
-        _handleIncomingMessage(newRpcResult);
-        return;
-      }
-
-      task?.complete(t.Result.ok(msg.result));
-      _pending.remove(reqMsgId);
-    } else if (msg is GzipPacked) {
-      final gZippedData = GZipDecoder().decodeBytes(msg.packedData);
-      final newObj = BinaryReader(Uint8List.fromList(gZippedData)).readObject();
-      _handleIncomingMessage(newObj);
+        _handleIncomingMessage(newObj);
     }
   }
 
+  final _idSeq = _MessageIdSequenceGenerator();
+  final Set<int> _msgsToAck = {};
+
   @override
-  Future<t.Result<t.TlObject>> invoke(t.TlMethod method) async {
+  Future<t.Result<t.TlObject>> invoke(t.TlMethod method) {
     final preferEncryption = authorizationKey.id != 0;
-    final idSeq = authorizationKey._idSeq;
-    final msgsToAck = authorizationKey._msgsToAck;
+    final msgsToAck = _msgsToAck;
 
     final completer = Completer<t.Result>();
-    final m = idSeq.next(preferEncryption);
+    final m = _idSeq.next(preferEncryption);
 
     if (preferEncryption && msgsToAck.isNotEmpty) {
-      final ack = idSeq.next(false);
+      final ack = _idSeq.next(false);
       final ackMsg = MsgsAck(msgIds: msgsToAck.toList());
       msgsToAck.clear();
 
