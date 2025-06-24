@@ -119,12 +119,3 @@ extension _XInt on int {
     return b;
   }
 }
-
-extension _XObject on TlObject {
-  Uint8List asUint8List() {
-    final buffer = <int>[];
-    serialize(buffer);
-
-    return Uint8List.fromList(buffer);
-  }
-}

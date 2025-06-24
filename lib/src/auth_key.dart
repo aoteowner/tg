@@ -29,7 +29,7 @@ class AuthorizationKey {
   final List<int> key;
 
   /// Int64 salt.
-  final int salt;
+  int salt;
 
   /// Serialize to JSON.
   Map<String, dynamic> toJson() {

@@ -63,3 +63,13 @@ class RpcException {
     return '$errorCode: $errorMessage';
   }
 }
+
+class TryAgainException {
+  TryAgainException(this.data);
+  final dynamic data;
+
+  @override
+  String toString() {
+    return 'should try again.\n$data';
+  }
+}

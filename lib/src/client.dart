@@ -78,12 +78,18 @@ class Client extends t.Client {
       case Msg():
         _handleIncomingMessage(msg.body);
       case BadMsgNotification():
-        final badMsgId = msg.badMsgId;
-        final task = _pending[badMsgId];
         if (_seqno != null) {
           _idSeq._seqno = _seqno!;
         }
-        task?.completeError(BadMessageException._(msg));
+        final badMsgId = msg.badMsgId;
+        final task = _pending[badMsgId];
+        task?.completeError(TryAgainException(msg));
+        _pending.remove(badMsgId);
+      case BadServerSalt salt:
+        authorizationKey.salt = salt.newServerSalt;
+        final badMsgId = msg.badMsgId;
+        final task = _pending[badMsgId];
+        task?.completeError(TryAgainException(salt));
         _pending.remove(badMsgId);
       case RpcResult():
         final reqMsgId = msg.reqMsgId;
