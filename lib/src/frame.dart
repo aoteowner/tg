@@ -1,7 +1,7 @@
 part of '../tg.dart';
 
-class _Frame {
-  const _Frame(
+class Frame {
+  const Frame(
     this.message,
     this.messageId,
     this.authKeyId,
@@ -9,7 +9,7 @@ class _Frame {
   );
 
   /// Parse from [Uint8List].
-  factory _Frame.parse(
+  factory Frame.parse(
     Uint8List data,
     Obfuscation? obfuscation,
     List<int> authKey,
@@ -28,7 +28,7 @@ class _Frame {
       final br2 = BinaryReader(messageBuffer);
       final message = br2.readObject();
 
-      return _Frame(message, messageId, authKeyId, null);
+      return Frame(message, messageId, authKeyId, null);
     }
 
     //
@@ -73,7 +73,7 @@ class _Frame {
           throw new WTException("Mismatch between MsgKey & decrypted SHA256");
       */
 
-    return _Frame(message, msgId, authKeyId, seqno);
+    return Frame(message, msgId, authKeyId, seqno);
   }
 
   final TlObject message;

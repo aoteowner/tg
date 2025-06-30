@@ -9,11 +9,15 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:pointycastle/export.dart' as pc;
-import 'package:t/t.dart';
-import 'package:t/t.dart' as t;
+import 'package:tg_api/account.dart';
+// import 'package:t/t.dart';
+// import 'package:t/t.dart' as t;
+import 'package:tg_api/api.dart';
+import 'package:tg_api/tg_api.dart';
 
 import 'src/crypto.dart';
 import 'src/encrypt.dart';
+import 'src/handle_message.dart';
 
 part 'src/decoders.dart';
 part 'src/encoders.dart';

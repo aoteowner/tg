@@ -3,7 +3,7 @@ part of '../tg.dart';
 class _BaseTransformer {
   _BaseTransformer(
     this._receiver,
-    this._msgsToAck,
+    // this._msgsToAck,
     this._obfuscation,
     this.key,
   ) {
@@ -12,7 +12,7 @@ class _BaseTransformer {
 
   _BaseTransformer.unEncrypted(
     this._receiver,
-    this._msgsToAck,
+    // this._msgsToAck,
     this._obfuscation,
   ) : key = const [] {
     _subscription = _receiver.listen(_readFrame);
@@ -24,12 +24,12 @@ class _BaseTransformer {
     await _subscription?.cancel();
   }
 
-  final _streamController = StreamController<_Frame>.broadcast();
-  Stream<_Frame> get stream => _streamController.stream;
+  final _streamController = StreamController<Frame>.broadcast();
+  Stream<Frame> get stream => _streamController.stream;
 
   final Stream<List<int>> _receiver;
   final Obfuscation? _obfuscation;
-  final Set<int> _msgsToAck;
+  // final Set<int> _msgsToAck;
   final List<int> _read = [];
   int? _length;
   final List<int> key;
@@ -52,12 +52,12 @@ class _BaseTransformer {
       _read.removeRange(0, length + 4);
       _length = null;
 
-      final frame = _Frame.parse(buffer, _obfuscation, key);
-      final seqno = frame.seqno;
+      final frame = Frame.parse(buffer, _obfuscation, key);
+      // final seqno = frame.seqno;
 
-      if (seqno != null && (seqno & 1) != 0) {
-        _msgsToAck.add(frame.messageId);
-      }
+      // if (seqno != null && (seqno & 1) != 0) {
+      //   _msgsToAck.add(frame.messageId);
+      // }
 
       _streamController.add(frame);
     }

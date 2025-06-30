@@ -1,14 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:t/t.dart' as t;
 import 'package:tg/tg.dart' as tg;
 import 'package:socks5_proxy/socks_client.dart';
+import 'package:tg_api/api.dart';
+import 'package:tg_api/auth.dart';
+import 'package:tg_api/help.dart' as help;
 
 const apiId = 611335;
 const apiHash = 'd524b414d21f4d37f08684c1df41ac9c';
 
-var _dc = const t.DcOption(
+var _dc = const DcOption(
   ipv6: false,
   mediaOnly: false,
   tcpoOnly: false,
@@ -69,7 +71,7 @@ void main() async {
 
   await Future.delayed(const Duration(milliseconds: 100));
 
-  final cfg = await c.initConnection<t.Config>(
+  final cfg = await c.initConnection(
     apiId: apiId,
     deviceModel: 'Galaxy S24',
     systemVersion: 'Android 14',
@@ -77,7 +79,7 @@ void main() async {
     systemLangCode: 'en',
     langPack: '',
     langCode: 'en',
-    query: const t.HelpGetConfig(),
+    query: const help.GetConfigMethod(),
   );
 
   print('Config: $cfg');
@@ -89,7 +91,7 @@ void main() async {
     apiId: apiId,
     apiHash: apiHash,
     phoneNumber: phoneNumber,
-    settings: const t.CodeSettings(
+    settings: const CodeSettings(
       allowFlashcall: false,
       currentNumber: true,
       allowAppHash: false,
@@ -101,9 +103,10 @@ void main() async {
 
   print('Send Code: $sendCodeResponse');
 
-  final sentCodeResult = sendCodeResponse.result as t.AuthSentCode;
+  final sentCodeResult = sendCodeResponse.result as SentCode?;
 
   stdout.write('Login code: ');
+  if (sentCodeResult == null) return;
   final phoneCode = stdin.readLineSync();
 
   final signInResponse = await c.auth.signIn(
@@ -117,7 +120,7 @@ void main() async {
   if (signInResponse.error != null) {
     final accountPasswordResponse = await c.account.getPassword();
     print('Get Password: $accountPasswordResponse');
-    final accountPassword = accountPasswordResponse.result as t.AccountPassword;
+    final accountPassword = accountPasswordResponse.result!;
 
     if (accountPassword.hint != null) {
       stdout.write('Password (Hint: ${accountPassword.hint}): ');

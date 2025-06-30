@@ -14,16 +14,22 @@ environment:
 # Add regular dependencies here.
 dependencies:
   # t: ^0.0.26
-  t:
-    git:
-      url: https://github.com/aoteowner/t
-      ref: 33671eb88
+  # t:
+  #   git:
+  #     url: https://github.com/aoteowner/t
+  #     ref: 33671eb88
+  tg_api:
+    path: ../tg_api
+
   archive: ^4.0.7
-  pointycastle: ^4.0.0
+  pointycastle:
+  nop: ^0.2.0+3
 
 dependency_overrides:
-  t:
-    path: ../t
+  tg_api:
+    path: ../tg_api
+  # t:
+  #   path: ../t
 
 dev_dependencies:
   lints: ^6.0.0

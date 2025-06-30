@@ -1,7 +1,7 @@
 part of '../tg.dart';
 
 InputCheckPasswordSRP check2FA(
-  AccountPassword accountPassword,
+  Password accountPassword,
   String password,
 ) {
   final currentAlgo = accountPassword.currentAlgo;

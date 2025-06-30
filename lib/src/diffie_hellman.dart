@@ -11,10 +11,10 @@ class _DiffieHellman {
   }
 
   final Obfuscation? obfuscation;
-  final Stream<_Frame> receiver;
+  final Stream<Frame> receiver;
   final Sink<Iterable<int>> sender;
 
-  void _onMessage(_Frame frame) {
+  void _onMessage(Frame frame) {
     final msg = frame.message;
 
     if (msg is ResPQ) {
@@ -54,15 +54,15 @@ class _DiffieHellman {
 
   final Map<String, Completer<ResPQ>> _dicResPQ = {};
   final Map<String, Completer<ServerDHParamsOk>> _dicReqDHParams = {};
-  final Map<String, Completer<SetClientDHParamsAnswerBase>>
-      _reqSetClientDHParams = {};
+  final Map<String, Completer<SetClientDHParamsAnswer>> _reqSetClientDHParams =
+      {};
 
   Future<ResPQ> _reqPqMulti([Int128? nonce]) async {
     final completer = Completer<ResPQ>();
     final m = _idSeq.next(false);
 
     nonce ??= Int128.random();
-    final msg = ReqPqMulti(nonce: nonce);
+    final msg = ReqPqMultiMethod(nonce: nonce);
     final key = msg.nonce.toString();
     _dicResPQ[key] = completer;
 
@@ -83,8 +83,9 @@ class _DiffieHellman {
         .firstWhere((x) => rsaKeys[x] != null, orElse: () => 0);
 
     final publicKey = rsaKeys[fingerprint]!;
-    final n = _bigEndianInteger(publicKey.n);
-    final e = _bigEndianInteger(publicKey.e);
+    // final n = _bigEndianInteger(publicKey.n);
+    // final e = _bigEndianInteger(publicKey.e);
+    final RRSaKey(:n, :e) = publicKey;
 
     final pq = resPQ.pq.buffer.asByteData().getUint64(0, Endian.big);
     final p = _pqFactorize(pq);
@@ -150,7 +151,7 @@ class _DiffieHellman {
       }
     } while (encryptedData == null);
 
-    final reqDHParams = ReqDHParams(
+    final reqDHParams = ReqDHParamsMethod(
       p: _int64ToBigEndian(p),
       q: _int64ToBigEndian(q),
       nonce: resPQ.nonce,
@@ -178,7 +179,7 @@ class _DiffieHellman {
     return completer.future;
   }
 
-  Future<SetClientDHParamsAnswerBase> _setClientDHParams(
+  Future<SetClientDHParamsAnswer> _setClientDHParams(
     ResPQ resPQ,
     BigInt gB,
     int retryId,
@@ -206,13 +207,13 @@ class _DiffieHellman {
       true,
     );
 
-    final setClientDHParams = SetClientDHParams(
+    final setClientDHParams = SetClientDHParamsMethod(
       nonce: resPQ.nonce,
       serverNonce: resPQ.serverNonce,
       encryptedData: encryptedData,
     );
 
-    final completer = Completer<SetClientDHParamsAnswerBase>();
+    final completer = Completer<SetClientDHParamsAnswer>();
     final m = _idSeq.next(false);
 
     final msg = setClientDHParams;
