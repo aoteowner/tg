@@ -61,7 +61,7 @@ class Client extends ApiClient with HandleMessageMixin {
 
   @override
   void send(MtTask task) {
-    final buffer = preferEncryption
+    final buffer = !preferEncryption
         ? encodeNoAuth(task.method, task.idSeq)
         : encodeWithAuth(task.method, task.idSeq, 10, authorizationKey);
 
