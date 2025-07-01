@@ -1,8 +1,8 @@
-part of '../tg.dart';
+import 'package:tg_api/api.dart';
 
 /// Raised when a bad message is sent to the server.
 class BadMessageException implements Exception {
-  const BadMessageException._(this.result);
+  const BadMessageException(this.result);
 
   /// Exception result.
   final BadMsgNotification result;

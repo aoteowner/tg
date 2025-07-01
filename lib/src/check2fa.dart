@@ -1,4 +1,14 @@
-part of '../tg.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:pointycastle/export.dart';
+import 'package:tg/src/extensions.dart';
+import 'package:tg_api/account.dart';
+import 'package:tg_api/api.dart';
+import 'package:tg_api/tg_api.dart';
+
+import 'crypto.dart';
+import 'private.dart';
 
 InputCheckPasswordSRP check2FA(
   Password accountPassword,
@@ -17,7 +27,7 @@ InputCheckPasswordSRP check2FA(
   if (algo == newAlgo) {
     // TODO
     // final saltRandom = Uint8List(32);
-    // _rng.getBytes(saltRandom);
+    // rng.getBytes(saltRandom);
     // final salt1 = [
     //   ...algoTmp.salt1, /*...saltRandom*/
     // ];
@@ -27,9 +37,9 @@ InputCheckPasswordSRP check2FA(
   final salt2 = [...algo.salt2];
 
   final g = BigInt.from(algo.g);
-  final p = _bigEndianInteger(algo.p);
+  final p = bigEndianInteger(algo.p);
 
-  _checkGoodPrime(p, algo.g);
+  checkGoodPrime(p, algo.g);
   final passwordBytes = utf8.encode(password);
 
   final x1 = [...salt1, ...passwordBytes, ...salt1];
@@ -37,15 +47,15 @@ InputCheckPasswordSRP check2FA(
   final x2 = [...salt2, ...hash0.take(32), ...salt2];
   final hash = sha256(x2);
 
-  final params = pc.Pbkdf2Parameters(Uint8List.fromList(salt1), 100000, 64);
-  final derive = pc.PBKDF2KeyDerivator(pc.HMac.withDigest(pc.SHA512Digest()));
+  final params = Pbkdf2Parameters(Uint8List.fromList(salt1), 100000, 64);
+  final derive = PBKDF2KeyDerivator(HMac.withDigest(SHA512Digest()));
 
   derive.init(params);
 
   final pbkdf2 = derive.process(Uint8List.fromList(hash));
 
   final x3 = [...salt2, ...pbkdf2.take(64), ...salt2];
-  final x = _bigEndianInteger(sha256(x3));
+  final x = bigEndianInteger(sha256(x3));
   final v = g.modPow(x, p);
 
   // If we're computing a new password
@@ -57,20 +67,20 @@ InputCheckPasswordSRP check2FA(
     );
   }
 
-  final gB = _bigEndianInteger(accountPassword.srpB!);
+  final gB = bigEndianInteger(accountPassword.srpB!);
   final gB256 = gB.to256Bytes();
   final g_256 = g.to256Bytes();
 
   final kh = sha256([...algo.p.take(256), ...g_256.take(256)]);
-  final k = _bigEndianInteger(kh);
+  final k = bigEndianInteger(kh);
   final kV = (k * v) % p;
 
-  final a = _bigEndianInteger(Int256.random().data);
+  final a = bigEndianInteger(Int256.random().data);
   final gA = g.modPow(a, p);
   final gA256 = gA.to256Bytes();
 
   final uux = sha256([...gA256, ...gB256]);
-  final u = _bigEndianInteger(uux);
+  final u = bigEndianInteger(uux);
 
   var t = (gB - kV) % p;
 

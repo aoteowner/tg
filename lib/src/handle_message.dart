@@ -1,17 +1,19 @@
 import 'dart:async';
 
 import 'package:archive/archive.dart';
+import 'package:meta/meta.dart';
 import 'package:nop/nop.dart' as l;
-import 'package:tg/tg.dart';
 import 'package:tg_api/api.dart';
 import 'package:tg_api/tg_api.dart';
+
+import 'encoders.dart';
+import 'frame.dart';
 
 mixin HandleMessageMixin {
   final _streamController = StreamController<UpdatesBase>.broadcast();
 
   Stream<UpdatesBase> get stream => _streamController.stream;
 
-  void updateSeqno(int newSeqno) {}
   void updateSalt(int newSalt) {}
 
   int? _seqno;
@@ -70,19 +72,31 @@ mixin HandleMessageMixin {
     }
   }
 
-  IdSeq get nextTaskId;
+  final _idSeq = MessageIdSequenceGenerator();
 
-  final _tasks = <int, MtTask>{};
+  void updateSeqno(int newSeqno) {
+    _idSeq.updateSeqno(newSeqno);
+  }
 
-  MtTask? getTask(int id) => _tasks[id];
+  bool get preferEncryption;
+
+  IdSeq get nextTaskId => _idSeq.next(preferEncryption);
+
+  final _tasks = <Object, MtTask>{};
+
+  MtTask? getTask(Object id) => _tasks[id];
 
   void _remove(int id) => _tasks.remove(id);
 
   void send(MtTask task);
 
+  Object getKey(MtTask task) {
+    return task.idSeq.id;
+  }
+
   MtTask createTask(TlMethod method) {
     final task = MtTask(nextTaskId, method, _remove);
-    _tasks[task.idSeq.id] = task;
+    _tasks[getKey(task)] = task;
     send(task);
     return task;
   }
@@ -97,9 +111,21 @@ mixin HandleMessageMixin {
     }
   }
 
-  void _complete(Result result, int id) {
+  void complete(Result result, Object id) {
+    _complete(result, id);
+  }
+
+  void _complete(Result result, Object id) {
     final task = getTask(id);
+    if (task == null) {
+      l.Log.w('task == null, $id');
+    }
     task?._complete(result);
+  }
+
+  @mustCallSuper
+  void close() {
+    _streamController.close();
   }
 }
 

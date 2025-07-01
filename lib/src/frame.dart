@@ -1,4 +1,11 @@
-part of '../tg.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:tg/src/extensions.dart';
+import 'package:tg_api/tg_api.dart';
+
+import 'obfuscation.dart';
+import 'private.dart';
 
 class Frame {
   const Frame(
@@ -33,7 +40,7 @@ class Frame {
 
     //
 
-    final decryptedData = _encryptDecryptMessage(
+    final decryptedData = encryptDecryptMessage(
       Uint8List.fromList(data.skip(24).toList()),
       false,
       8,

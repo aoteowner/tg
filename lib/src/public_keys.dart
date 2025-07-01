@@ -1,6 +1,8 @@
 // ignore_for_file: unused_element
 
-part of '../tg.dart';
+import 'dart:typed_data';
+
+import 'package:tg_api/api.dart';
 
 final _production = RsaPublicKey(
     e: Uint8List.fromList([1, 0, 1]),
@@ -558,6 +560,6 @@ final rsaKeys = {
 
 const _epochTicks = 621355968000000000;
 
-extension _TicksOnDateTime on DateTime {
+extension TicksOnDateTime on DateTime {
   int get ticks => microsecondsSinceEpoch * 10 + _epochTicks;
 }

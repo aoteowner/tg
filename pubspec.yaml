@@ -24,6 +24,7 @@ dependencies:
   archive: ^4.0.7
   pointycastle:
   nop: ^0.2.0+3
+  meta: any
 
 dependency_overrides:
   tg_api:

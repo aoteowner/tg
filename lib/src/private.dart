@@ -1,8 +1,16 @@
-part of '../tg.dart';
+import 'dart:math';
+import 'dart:typed_data';
 
-final _rng = Random();
+import 'package:tg/tg.dart';
+import 'package:tg_api/tg_api.dart';
 
-Uint8List _int64ToBigEndian(int value) {
+import 'crypto.dart';
+import 'encrypt.dart';
+import 'extensions.dart';
+
+final rng = Random();
+
+Uint8List int64ToBigEndian(int value) {
   int i = 1;
   for (int temp = value; (temp >>= 8) != 0;) {
     i++;
@@ -16,7 +24,7 @@ Uint8List _int64ToBigEndian(int value) {
   return result;
 }
 
-String _hex(Iterable<int> v) {
+String hexToStr(Iterable<int> v) {
   final h = v
       .map((vv) => vv.toRadixString(16).padLeft(2, '0'))
       .join('')
@@ -25,12 +33,12 @@ String _hex(Iterable<int> v) {
   return h;
 }
 
-BigInt _bigEndianInteger(Iterable<int> value) {
-  final data = _hex(value);
+BigInt bigEndianInteger(Iterable<int> value) {
+  final data = hexToStr(value);
   return BigInt.parse(data, radix: 16);
 }
 
-Uint8List _fromHexToUint8List(String value) {
+Uint8List fromHexToUint8List(String value) {
   if (value.length.isOdd) {
     value = '0$value';
   }
@@ -45,7 +53,7 @@ Uint8List _fromHexToUint8List(String value) {
   return r;
 }
 
-Uint8List _aesIgeEncryptDecrypt(
+Uint8List aesIgeEncryptDecrypt(
   Uint8List input,
   AesKeyIV keys,
   bool encrypt,
@@ -98,7 +106,7 @@ Uint8List _aesIgeEncryptDecrypt(
   return output;
 }
 
-AesKeyIV _constructTmpAESKeyIV(Int128 serverNonce, Int256 newNonce) {
+AesKeyIV constructTmpAESKeyIV(Int128 serverNonce, Int256 newNonce) {
   final x1 = sha1([...newNonce.data, ...serverNonce.data]);
   final x2 = sha1([...serverNonce.data, ...newNonce.data]);
   final x3 = sha1([...newNonce.data, ...newNonce.data]);
@@ -112,7 +120,7 @@ AesKeyIV _constructTmpAESKeyIV(Int128 serverNonce, Int256 newNonce) {
   );
 }
 
-void _checkGoodPrime(BigInt p, int g) {
+void checkGoodPrime(BigInt p, int g) {
   // check that 2^2047 <= p < 2^2048
   if (p.bitLength != 2048) throw Exception("p is not 2048-bit number");
   // check that g generates a cyclic subgroup of prime order (p - 1) / 2, i.e. is a quadratic residue mod p.
@@ -120,22 +128,22 @@ void _checkGoodPrime(BigInt p, int g) {
   bool switchg() {
     switch (g) {
       case 2:
-        return p % _n08 != _n07;
+        return p % n08 != n07;
 
       case 3:
-        return p % _n03 != BigInt.two;
+        return p % n03 != BigInt.two;
 
       case 4:
         return false;
       case 5:
-        final m = (p % _n05);
-        return m != BigInt.one && m != _n04;
+        final m = (p % n05);
+        return m != BigInt.one && m != n04;
       case 6:
-        final m = (p % _n24);
-        return m != _n19 && m != _n23;
+        final m = (p % n24);
+        return m != n19 && m != n23;
       case 7:
-        final m = (p % _n07);
-        return m != _n03 && m != _n05 && m != _n06;
+        final m = (p % n07);
+        return m != n03 && m != n05 && m != n06;
     }
     return true;
   }
@@ -160,7 +168,7 @@ void _checkGoodPrime(BigInt p, int g) {
   _safePrimes.add(p);
 }
 
-void _checkGoodGaAndGb(BigInt g, BigInt dhPrime) {
+void checkGoodGaAndGb(BigInt g, BigInt dhPrime) {
   // check that g, g_a and g_b are greater than 1 and less than dh_prime - 1.
   // We recommend checking that g_a and g_b are between 2^{2048-64} and dh_prime - 2^{2048-64} as well.
   if (g.bitLength < 2048 - 64 || (dhPrime - g).bitLength < 2048 - 64) {
@@ -176,17 +184,17 @@ final List<BigInt> _safePrimes = [
   ),
 ];
 
-final _n03 = BigInt.from(3);
-final _n04 = BigInt.from(4);
-final _n05 = BigInt.from(5);
-final _n06 = BigInt.from(6);
-final _n07 = BigInt.from(7);
-final _n08 = BigInt.from(8);
-final _n19 = BigInt.from(19);
-final _n23 = BigInt.from(23);
-final _n24 = BigInt.from(24);
+final n03 = BigInt.from(3);
+final n04 = BigInt.from(4);
+final n05 = BigInt.from(5);
+final n06 = BigInt.from(6);
+final n07 = BigInt.from(7);
+final n08 = BigInt.from(8);
+final n19 = BigInt.from(19);
+final n23 = BigInt.from(23);
+final n24 = BigInt.from(24);
 
-Uint8List _encryptDecryptMessage(
+Uint8List encryptDecryptMessage(
   Uint8List input,
   bool encrypt,
   int x,
@@ -218,7 +226,7 @@ Uint8List _encryptDecryptMessage(
     ...sha256B.skip(24).take(8),
   ];
 
-  final r = _aesIgeEncryptDecrypt(
+  final r = aesIgeEncryptDecrypt(
     input,
     AesKeyIV(Uint8List.fromList(aesKey), Uint8List.fromList(aesIV)),
     encrypt,

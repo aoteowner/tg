@@ -1,13 +1,11 @@
-part of '../tg.dart';
+import 'dart:convert';
+
+import 'private.dart';
 
 /// Authorization Key.
 class AuthorizationKey {
   /// Constructor.
   AuthorizationKey(this.id, this.key, this.salt)
-      : assert(id != 0, 'Id must not be zero.'),
-        assert(key.length == 256, 'Key must be 256 bytes.');
-
-  AuthorizationKey._(this.id, this.key, this.salt)
       : assert(id != 0, 'Id must not be zero.'),
         assert(key.length == 256, 'Key must be 256 bytes.');
 
@@ -17,7 +15,7 @@ class AuthorizationKey {
     final salt = json['salt'] as int;
     final keyHex = json['key'] as String;
 
-    final key = _fromHexToUint8List(keyHex);
+    final key = fromHexToUint8List(keyHex);
 
     return AuthorizationKey(id, key, salt);
   }
@@ -35,7 +33,7 @@ class AuthorizationKey {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'key': _hex(key),
+      'key': hexToStr(key),
       'salt': salt,
     };
   }

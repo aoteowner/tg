@@ -1,8 +1,12 @@
-part of '../tg.dart';
+import 'dart:core';
+import 'dart:math';
+import 'dart:typed_data';
 
-extension _BigInt on BigInt {
+import 'private.dart';
+
+extension BigIntExt on BigInt {
   Uint8List toBytes([Endian endian = Endian.big]) {
-    final bytes = _fromHexToUint8List(toRadixString(16));
+    final bytes = fromHexToUint8List(toRadixString(16));
 
     if (endian == Endian.little) {
       return Uint8List.fromList(bytes.reversed.toList());
@@ -12,25 +16,25 @@ extension _BigInt on BigInt {
   }
 
   Uint8List to256Bytes() {
-    final bytes = _fromHexToUint8List(toRadixString(16).padLeft(512, '0'));
+    final bytes = fromHexToUint8List(toRadixString(16).padLeft(512, '0'));
 
     return bytes;
   }
 }
 
-extension _Random on Random {
+extension RandomExt on Random {
   void getBytes(Uint8List buffer, [int offset = 0, int? count]) {
     count ??= buffer.length;
     final end = offset + count;
 
     for (int i = offset; i < end; i++) {
       buffer[i] = (i + 1) % 256;
-      //buffer[i] = _rng.nextInt(256);
+      //buffer[i] = rng.nextInt(256);
     }
   }
 }
 
-extension _List<T> on List<T> {
+extension ListExt<T> on List<T> {
   void reverse(int start, int length) {
     final rev = sublist(start, start + length).reversed.toList();
     setRange(start, start + length, rev);
@@ -41,7 +45,7 @@ extension _List<T> on List<T> {
 // 64 is OpenSSL default for 2048-bits numbers
 const int _millerRabinIterations = 64;
 
-extension _Prime on BigInt {
+extension Prime on BigInt {
   /// Miller–Rabin primality test.
   ///
   /// [n] The number to check for primality.
@@ -65,13 +69,13 @@ extension _Prime on BigInt {
 
     for (int i = 0; i < _millerRabinIterations; i++) {
       do {
-        _rng.getBytes(randomBytes);
+        rng.getBytes(randomBytes);
         // we don't want more bits than necessary
         randomBytes[randomBytes.length - 1] &= lastByteMask;
 
         // Little endian.
-        a = _bigEndianInteger(randomBytes.reversed);
-      } while (a < _n03 || a >= nMinusOne);
+        a = bigEndianInteger(randomBytes.reversed);
+      } while (a < n03 || a >= nMinusOne);
 
       a = a - BigInt.one;
 
@@ -100,7 +104,7 @@ extension _Prime on BigInt {
   }
 }
 
-extension _XInt on int {
+extension XInt on int {
   Uint8List asUint64List([bool littleEndian = true]) {
     final b = Uint8List(8);
     b.buffer

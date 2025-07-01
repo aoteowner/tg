@@ -74,13 +74,13 @@ class Encrypted {
 /// Represents an Initialization Vector.
 class IV extends Encrypted {
   /// Creates an Initialization Vector object from a Uint8List.
-  IV(Uint8List bytes) : super(bytes);
+  IV(super.bytes);
 }
 
 /// Represents an Encryption Key.
 class Key extends Encrypted {
   /// Creates an Encryption Key object from a Uint8List.
-  Key(Uint8List bytes) : super(bytes);
+  Key(super.bytes);
 
   int get length => bytes.lengthInBytes;
 }

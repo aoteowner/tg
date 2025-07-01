@@ -1,77 +1,75 @@
-part of '../tg.dart';
+import 'dart:async';
+import 'dart:typed_data';
 
-class _DiffieHellman {
-  _DiffieHellman(
-    this.sender,
-    this.receiver,
-    this.obfuscation,
-    this._idSeq,
-  ) {
-    receiver.listen(_onMessage);
+import 'package:nop/nop.dart' as l;
+import 'package:tg/src/extensions.dart';
+import 'package:tg/tg.dart';
+import 'package:tg_api/api.dart';
+import 'package:tg_api/tg_api.dart';
+
+import 'crypto.dart';
+import 'encoders.dart';
+import 'frame.dart';
+import 'private.dart';
+import 'public_keys.dart';
+
+class AuthKeyClient extends ApiClient with HandleMessageMixin {
+  AuthKeyClient._(this.sender, this.obfuscation);
+
+  factory AuthKeyClient(Sink<List<int>> sender, Stream<List<int>> receiver,
+      Obfuscation obfuscation) {
+    final client = AuthKeyClient._(sender, obfuscation);
+    client.init(receiver);
+    return client;
   }
 
-  final Obfuscation? obfuscation;
-  final Stream<Frame> receiver;
-  final Sink<Iterable<int>> sender;
+  late StreamSubscription _sub;
+  late BaseTransformer _uot;
+
+  void init(Stream<List<int>> receiver) {
+    _uot = BaseTransformer.unEncrypted(
+      receiver,
+      obfuscation,
+    );
+
+    _sub = _uot.stream.listen(_onMessage);
+  }
+
+  @override
+  void close() {
+    super.close();
+    _sub.cancel();
+    _uot.dispose();
+  }
+
+  final Obfuscation obfuscation;
+  final Sink<List<int>> sender;
 
   void _onMessage(Frame frame) {
     final msg = frame.message;
 
-    if (msg is ResPQ) {
-      final key = msg.nonce.toString();
-
-      final task = _dicResPQ[key];
-      task?.complete(msg);
-      _dicResPQ.remove(key);
-    } else if (msg is ServerDHParamsOk) {
-      final key = '${msg.nonce}-${msg.serverNonce}';
-
-      final task = _dicReqDHParams[key];
-      task?.complete(msg);
-      _dicReqDHParams.remove(key);
-    } else if (msg is DhGenOk) {
-      final key = '${msg.nonce}-${msg.serverNonce}';
-
-      final task = _reqSetClientDHParams[key];
-      task?.complete(msg);
-      _reqSetClientDHParams.remove(key);
-    } else if (msg is DhGenRetry) {
-      final key = '${msg.nonce}-${msg.serverNonce}';
-
-      final task = _reqSetClientDHParams[key];
-      task?.complete(msg);
-      _reqSetClientDHParams.remove(key);
-    } else if (msg is DhGenFail) {
-      final key = '${msg.nonce}-${msg.serverNonce}';
-
-      final task = _reqSetClientDHParams[key];
-      task?.complete(msg);
-      _reqSetClientDHParams.remove(key);
+    switch (msg) {
+      case ResPQ():
+        final key = msg.nonce.toString();
+        complete(Result.ok(msg), key);
+      case ServerDHParamsOk():
+        final key = '${msg.nonce}-${msg.serverNonce}';
+        complete(Result.ok(msg), key);
+      case DhGenOk():
+        final key = '${msg.nonce}-${msg.serverNonce}';
+        complete(Result.ok(msg), key);
+      case DhGenRetry():
+        final key = '${msg.nonce}-${msg.serverNonce}';
+        complete(Result.ok(msg), key);
+      case DhGenFail():
+        final key = '${msg.nonce}-${msg.serverNonce}';
+        complete(Result.ok(msg), key);
     }
   }
 
-  final _MessageIdSequenceGenerator _idSeq;
-
-  final Map<String, Completer<ResPQ>> _dicResPQ = {};
-  final Map<String, Completer<ServerDHParamsOk>> _dicReqDHParams = {};
-  final Map<String, Completer<SetClientDHParamsAnswer>> _reqSetClientDHParams =
-      {};
-
   Future<ResPQ> _reqPqMulti([Int128? nonce]) async {
-    final completer = Completer<ResPQ>();
-    final m = _idSeq.next(false);
-
-    nonce ??= Int128.random();
-    final msg = ReqPqMultiMethod(nonce: nonce);
-    final key = msg.nonce.toString();
-    _dicResPQ[key] = completer;
-
-    final buffer = _encodeNoAuth(msg, m);
-
-    obfuscation?.send.encryptDecrypt(buffer, buffer.length);
-    sender.add(Uint8List.fromList(buffer));
-
-    return completer.future;
+    final res = await reqPqMulti(nonce: nonce ?? Int128.random());
+    return res.result!;
   }
 
   Future<ServerDHParamsOk> _reqDHParams(
@@ -88,13 +86,13 @@ class _DiffieHellman {
     final RRSaKey(:n, :e) = publicKey;
 
     final pq = resPQ.pq.buffer.asByteData().getUint64(0, Endian.big);
-    final p = _pqFactorize(pq);
+    final p = pqFactorize(pq);
     final q = pq ~/ p;
 
     final pqInnerData = PQInnerDataDc(
       pq: resPQ.pq,
-      p: _int64ToBigEndian(p),
-      q: _int64ToBigEndian(q),
+      p: int64ToBigEndian(p),
+      q: int64ToBigEndian(q),
       nonce: resPQ.nonce,
       serverNonce: resPQ.serverNonce,
       newNonce: newNonce,
@@ -108,7 +106,7 @@ class _DiffieHellman {
       final aesKey = Uint8List(32);
       final zeroIV = Uint8List(32);
 
-      _rng.getBytes(aesKey);
+      rng.getBytes(aesKey);
       clearBuffer.setRange(0, 32, aesKey);
 
       final msg = pqInnerData.asUint8List();
@@ -117,7 +115,7 @@ class _DiffieHellman {
       // length before padding
       final clearLength = msg.length;
 
-      _rng.getBytes(
+      rng.getBytes(
         clearBuffer,
         clearLength + 32,
         192 - clearLength,
@@ -127,7 +125,7 @@ class _DiffieHellman {
       clearBuffer.setRange(192 + 32, 192 + 32 + hash.length, hash);
       clearBuffer.reverse(32, 192);
 
-      final aesEncrypted = _aesIgeEncryptDecrypt(
+      final aesEncrypted = aesIgeEncryptDecrypt(
         Uint8List.fromList(clearBuffer.skip(32).take(224).toList()),
         AesKeyIV(aesKey, zeroIV),
         true,
@@ -142,7 +140,7 @@ class _DiffieHellman {
 
       clearBuffer.setRange(32, 256, aesEncrypted);
 
-      final x = _bigEndianInteger(clearBuffer);
+      final x = bigEndianInteger(clearBuffer);
 
       if (x < n) // if good result, encrypt with RSA key:
       {
@@ -151,32 +149,16 @@ class _DiffieHellman {
       }
     } while (encryptedData == null);
 
-    final reqDHParams = ReqDHParamsMethod(
-      p: _int64ToBigEndian(p),
-      q: _int64ToBigEndian(q),
+    final res = await reqDHParams(
+      p: int64ToBigEndian(p),
+      q: int64ToBigEndian(q),
       nonce: resPQ.nonce,
       serverNonce: resPQ.serverNonce,
       encryptedData: encryptedData,
       publicKeyFingerprint: fingerprint,
     );
 
-    final completer = Completer<ServerDHParamsOk>();
-    final m = _idSeq.next(false);
-
-    final msg = reqDHParams;
-    final key = '${msg.nonce}-${msg.serverNonce}';
-    _dicReqDHParams[key] = completer;
-
-    // if (msg is SetClientDHParams) {
-    //   final key = '${msg.nonce}-${msg.serverNonce}';
-    //   _reqSetClientDHParams[key] = completer;
-    // }
-
-    final buffer = _encodeNoAuth(msg, m);
-
-    obfuscation?.send.encryptDecrypt(buffer, buffer.length);
-    sender.add(Uint8List.fromList(buffer));
-    return completer.future;
+    return res.result as ServerDHParamsOk;
   }
 
   Future<SetClientDHParamsAnswer> _setClientDHParams(
@@ -196,35 +178,24 @@ class _DiffieHellman {
     final totalLength = messageBuffer.length + 20;
     final paddingToAdd = (0x7FFFFFF0 - totalLength) % 16;
     final padding = Uint8List(paddingToAdd);
-    _rng.getBytes(padding);
+    rng.getBytes(padding);
 
     final messageHash = sha1(messageBuffer);
 
     final clearStream = [...messageHash, ...messageBuffer, ...padding];
-    final encryptedData = _aesIgeEncryptDecrypt(
+    final encryptedData = aesIgeEncryptDecrypt(
       Uint8List.fromList(clearStream),
       keys,
       true,
     );
 
-    final setClientDHParams = SetClientDHParamsMethod(
+    final res = await setClientDHParams(
       nonce: resPQ.nonce,
       serverNonce: resPQ.serverNonce,
       encryptedData: encryptedData,
     );
 
-    final completer = Completer<SetClientDHParamsAnswer>();
-    final m = _idSeq.next(false);
-
-    final msg = setClientDHParams;
-    final key = '${msg.nonce}-${msg.serverNonce}';
-    _reqSetClientDHParams[key] = completer;
-
-    final buffer = _encodeNoAuth(msg, m);
-
-    obfuscation?.send.encryptDecrypt(buffer, buffer.length);
-    sender.add(Uint8List.fromList(buffer));
-    return completer.future;
+    return res.result!;
   }
 
   Future<AuthorizationKey> _createAuthKey(
@@ -234,21 +205,21 @@ class _DiffieHellman {
     int? dc,
   }) async {
     final pq = resPQ.pq.buffer.asByteData().getUint64(0, Endian.big);
-    final p = _pqFactorize(pq);
+    final p = pqFactorize(pq);
     final q = pq ~/ p;
 
     final pqInnerData = PQInnerDataDc(
       pq: resPQ.pq,
-      p: _int64ToBigEndian(p),
-      q: _int64ToBigEndian(q),
+      p: int64ToBigEndian(p),
+      q: int64ToBigEndian(q),
       nonce: resPQ.nonce,
       serverNonce: resPQ.serverNonce,
       newNonce: newNonce,
       dc: dc ?? 0,
     );
 
-    final keys = _constructTmpAESKeyIV(resPQ.serverNonce, pqInnerData.newNonce);
-    final answer = _aesIgeEncryptDecrypt(
+    final keys = constructTmpAESKeyIV(resPQ.serverNonce, pqInnerData.newNonce);
+    final answer = aesIgeEncryptDecrypt(
       serverDHparams.encryptedAnswer,
       keys,
       false,
@@ -266,23 +237,20 @@ class _DiffieHellman {
     final hash =
         sha1(answer.skip(20).take(answer.length - paddingLength - 20).toList());
 
-    print('${_hex(answerHash)} == ${_hex(hash)}');
+    print('${hexToStr(answerHash)} == ${hexToStr(hash)}');
 
-    final gA = _bigEndianInteger(answerObj.gA);
-    final dhPrime = _bigEndianInteger(answerObj.dhPrime);
+    final gA = bigEndianInteger(answerObj.gA);
+    final dhPrime = bigEndianInteger(answerObj.dhPrime);
 
-    _checkGoodPrime(dhPrime, answerObj.g);
-
-    _idSeq._lastSentMessageId = 0;
-    //dcSession.serverTicksOffset = (answerObj.serverTime - localTime).Ticks;
+    checkGoodPrime(dhPrime, answerObj.g);
 
     final salt = Uint8List(256);
-    _rng.getBytes(salt);
-    final b = _bigEndianInteger(salt);
+    rng.getBytes(salt);
+    final b = bigEndianInteger(salt);
 
     final gB = BigInt.from(answerObj.g).modPow(b, dhPrime);
-    _checkGoodGaAndGb(gA, dhPrime);
-    _checkGoodGaAndGb(gB, dhPrime);
+    checkGoodGaAndGb(gA, dhPrime);
+    checkGoodGaAndGb(gB, dhPrime);
 
     var retryId = 0;
     final setClientDHparamsAnswer = await _setClientDHParams(
@@ -315,7 +283,7 @@ class _DiffieHellman {
 
     if (result is DhGenOk) {
       print(
-          '0x${_hex(expectedNewNonceNHash.skip(4))} == ${result.newNonceHash1}');
+          '0x${hexToStr(expectedNewNonceNHash.skip(4))} == ${result.newNonceHash1}');
     }
 
     final authKeyID =
@@ -328,7 +296,7 @@ class _DiffieHellman {
     final saltRight = BinaryReader(Uint8List.fromList(resPQ.serverNonce.data))
         .readInt64(false);
 
-    final ak = AuthorizationKey._(
+    final ak = AuthorizationKey(
       authKeyID,
       authKey,
       saltLeft ^ saltRight,
@@ -351,4 +319,34 @@ class _DiffieHellman {
 
     return ak;
   }
+
+  @override
+  bool get preferEncryption => false;
+
+  @override
+  Object getKey(MtTask task) {
+    final params = task.method;
+    switch (params) {
+      case ReqPqMultiMethod():
+        return params.nonce.toString();
+      case ReqDHParamsMethod():
+        return '${params.nonce}-${params.serverNonce}';
+      case SetClientDHParamsMethod():
+        return '${params.nonce}-${params.serverNonce}';
+      case _:
+        l.Log.e(params.toJson().logPretty());
+        return super.getKey(task);
+    }
+  }
+
+  @override
+  void send(MtTask task) {
+    final buffer = encodeNoAuth(task.method, task.idSeq);
+
+    obfuscation.send.encryptDecrypt(buffer, buffer.length);
+    sender.add(Uint8List.fromList(buffer));
+  }
+
+  @override
+  Future<Result<TlObject>> invoke(TlMethod method) => createTask(method).future;
 }

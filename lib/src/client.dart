@@ -1,4 +1,13 @@
-part of '../tg.dart';
+import 'dart:typed_data';
+
+import 'package:tg_api/api.dart';
+import 'package:tg_api/tg_api.dart';
+import 'auth_key.dart';
+import 'decoders.dart';
+import 'diffie_hellman.dart';
+import 'handle_message.dart';
+import 'encoders.dart';
+import 'obfuscation.dart';
 
 class Client extends ApiClient with HandleMessageMixin {
   Client({
@@ -7,7 +16,7 @@ class Client extends ApiClient with HandleMessageMixin {
     required this.obfuscation,
     required this.authorizationKey,
   }) {
-    _transformer = _BaseTransformer(
+    _transformer = BaseTransformer(
       receiver,
       obfuscation,
       authorizationKey.key,
@@ -21,21 +30,13 @@ class Client extends ApiClient with HandleMessageMixin {
     Sink<List<int>> sender,
     Obfuscation obfuscation,
   ) async {
-    final uot = _BaseTransformer.unEncrypted(
+    final dh = AuthKeyClient(
+      sender,
       receiver,
       obfuscation,
     );
-
-    final idSeq = _MessageIdSequenceGenerator();
-    final dh = _DiffieHellman(
-      sender,
-      uot.stream,
-      obfuscation,
-      idSeq,
-    );
     final ak = await dh.exchange();
-
-    await uot.dispose();
+    dh.close();
     return ak;
   }
 
@@ -48,9 +49,7 @@ class Client extends ApiClient with HandleMessageMixin {
   final Stream<Uint8List> receiver;
   final Sink<List<int>> sender;
 
-  late final _BaseTransformer _transformer;
-
-  final _idSeq = _MessageIdSequenceGenerator();
+  late final BaseTransformer _transformer;
 
   @override
   void updateSalt(int newSalt) {
@@ -58,21 +57,13 @@ class Client extends ApiClient with HandleMessageMixin {
   }
 
   @override
-  void updateSeqno(int newSeqno) {
-    _idSeq._seqno = newSeqno;
-  }
-
-  @override
-  IdSeq get nextTaskId {
-    final preferEncryption = authorizationKey.id != 0;
-    return _idSeq.next(preferEncryption);
-  }
+  bool get preferEncryption => authorizationKey.id != 0;
 
   @override
   void send(MtTask task) {
-    final buffer = authorizationKey.id == 0
-        ? _encodeNoAuth(task.method, task.idSeq)
-        : _encodeWithAuth(task.method, task.idSeq, 10, authorizationKey);
+    final buffer = preferEncryption
+        ? encodeNoAuth(task.method, task.idSeq)
+        : encodeWithAuth(task.method, task.idSeq, 10, authorizationKey);
 
     obfuscation.send.encryptDecrypt(buffer, buffer.length);
     sender.add(Uint8List.fromList(buffer));
@@ -81,3 +72,5 @@ class Client extends ApiClient with HandleMessageMixin {
   @override
   Future<Result<TlObject>> invoke(TlMethod method) => createTask(method).future;
 }
+
+mixin MtDhClientMixin on HandleMessageMixin {}

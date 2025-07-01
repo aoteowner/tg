@@ -1,9 +1,10 @@
-part of '../tg.dart';
+import 'dart:math';
+import 'dart:typed_data';
 
 /// ported from https://github.com/tdlib/td/blob/master/tdutils/td/utils/crypto.cpp#L103
 ///
 /// Returns ulong.
-int _pqFactorize(int pq) {
+int pqFactorize(int pq) {
   if (pq < 2) return 1;
   final random = Random();
   int g = 0;

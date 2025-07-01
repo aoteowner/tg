@@ -1,6 +1,14 @@
-part of '../tg.dart';
+import 'dart:typed_data';
 
-Uint8List _encodeNoAuth(
+import 'package:tg_api/tg_api.dart';
+
+import '../tg.dart';
+import 'crypto.dart';
+import 'extensions.dart';
+import 'private.dart';
+import 'public_keys.dart';
+
+Uint8List encodeNoAuth(
   TlObject message,
   IdSeq m,
 ) {
@@ -16,7 +24,7 @@ Uint8List _encodeNoAuth(
   return Uint8List.fromList(buffer);
 }
 
-Uint8List _encodeWithAuth(
+Uint8List encodeWithAuth(
   TlObject message,
   IdSeq m,
   int sessionId,
@@ -25,9 +33,9 @@ Uint8List _encodeWithAuth(
   final messageBuffer = message.asUint8List();
   final clearLength = messageBuffer.length + 32;
   final padding = ((0x7FFFFFF0 - clearLength) % 16);
-  final paddingRandomized = padding + ((2 + _rng.nextInt(14)) * 16);
+  final paddingRandomized = padding + ((2 + rng.nextInt(14)) * 16);
   final paddingData = Uint8List(paddingRandomized);
-  _rng.getBytes(paddingData);
+  rng.getBytes(paddingData);
 
   final clear = <int>[
     ...auth.key.skip(88).take(32),
@@ -41,7 +49,7 @@ Uint8List _encodeWithAuth(
   ];
 
   final msgKey = Uint8List.fromList(sha256(clear));
-  final encryptedData = _encryptDecryptMessage(
+  final encryptedData = encryptDecryptMessage(
     Uint8List.fromList(clear.skip(32).toList()),
     true,
     0,
@@ -62,10 +70,14 @@ Uint8List _encodeWithAuth(
   return Uint8List.fromList(buffer);
 }
 
-class _MessageIdSequenceGenerator {
+class MessageIdSequenceGenerator {
   int _lastSentMessageId = 0;
   int _seqno = 0;
   int serverTicksOffset = 0;
+
+  void updateSeqno(int newSeqno) {
+    _seqno = newSeqno;
+  }
 
   IdSeq next(bool preferEncryption) {
     var msgId = DateTime.now().ticks + serverTicksOffset - 621355968000000000;

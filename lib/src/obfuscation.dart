@@ -1,4 +1,10 @@
-part of '../tg.dart';
+import 'dart:typed_data';
+
+import 'package:pointycastle/export.dart' as pc;
+
+import 'crypto.dart';
+import 'extensions.dart';
+import 'private.dart';
 
 /// Obfuscation.
 class Obfuscation {
@@ -8,7 +14,7 @@ class Obfuscation {
   factory Obfuscation.random(bool padded, int dcId, [Uint8List? secret]) {
     final random = Uint8List(58);
 
-    _rng.getBytes(random, 0, 58);
+    rng.getBytes(random, 0, 58);
 
 // TODO (xclud):
     // while (preamble[0] == 0xef ||
