@@ -13,7 +13,7 @@ import 'frame.dart';
 import 'private.dart';
 import 'public_keys.dart';
 
-class AuthKeyClient extends ApiClient with HandleMessageMixin {
+class AuthKeyClient extends ApiClient with TgTaskMixin {
   AuthKeyClient._(this.sender, this.obfuscation);
 
   factory AuthKeyClient(Sink<List<int>> sender, Stream<List<int>> receiver,
@@ -35,9 +35,7 @@ class AuthKeyClient extends ApiClient with HandleMessageMixin {
     _sub = _uot.stream.listen(_onMessage);
   }
 
-  @override
   void close() {
-    super.close();
     _sub.cancel();
     _uot.dispose();
   }
