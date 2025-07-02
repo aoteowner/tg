@@ -13,10 +13,10 @@ import 'frame.dart';
 import 'private.dart';
 import 'public_keys.dart';
 
-class AuthKeyClient extends ApiClient with TgTaskMixin {
+class AuthKeyClient extends ApiClient with Messager {
   AuthKeyClient._(this.sender, this.obfuscation);
 
-  factory AuthKeyClient(Sink<List<int>> sender, Stream<List<int>> receiver,
+  factory AuthKeyClient(Sink<List<int>> sender, Stream<Uint8List> receiver,
       Obfuscation obfuscation) {
     final client = AuthKeyClient._(sender, obfuscation);
     client.init(receiver);
@@ -26,7 +26,7 @@ class AuthKeyClient extends ApiClient with TgTaskMixin {
   late StreamSubscription _sub;
   late BaseTransformer _uot;
 
-  void init(Stream<List<int>> receiver) {
+  void init(Stream<Uint8List> receiver) {
     _uot = BaseTransformer.unEncrypted(
       receiver,
       obfuscation,
@@ -49,19 +49,19 @@ class AuthKeyClient extends ApiClient with TgTaskMixin {
     switch (msg) {
       case ResPQ():
         final key = msg.nonce.toString();
-        complete(Result.ok(msg), key);
+        tgTask.complete(Result.ok(msg), key);
       case ServerDHParamsOk():
         final key = '${msg.nonce}-${msg.serverNonce}';
-        complete(Result.ok(msg), key);
+        tgTask.complete(Result.ok(msg), key);
       case DhGenOk():
         final key = '${msg.nonce}-${msg.serverNonce}';
-        complete(Result.ok(msg), key);
+        tgTask.complete(Result.ok(msg), key);
       case DhGenRetry():
         final key = '${msg.nonce}-${msg.serverNonce}';
-        complete(Result.ok(msg), key);
+        tgTask.complete(Result.ok(msg), key);
       case DhGenFail():
         final key = '${msg.nonce}-${msg.serverNonce}';
-        complete(Result.ok(msg), key);
+        tgTask.complete(Result.ok(msg), key);
     }
   }
 
@@ -319,9 +319,6 @@ class AuthKeyClient extends ApiClient with TgTaskMixin {
   }
 
   @override
-  bool get preferEncryption => false;
-
-  @override
   Object getKey(MtTask task) {
     final params = task.method;
     switch (params) {
@@ -345,6 +342,12 @@ class AuthKeyClient extends ApiClient with TgTaskMixin {
     sender.add(Uint8List.fromList(buffer));
   }
 
+  late final tgTask = TgTask(this);
+
   @override
-  Future<Result<TlObject>> invoke(TlMethod method) => createTask(method).future;
+  Future<Result<TlObject>> invoke(TlMethod method) =>
+      tgTask.createTask(method).future;
+
+  @override
+  bool get preferEncryption => false;
 }

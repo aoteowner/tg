@@ -5,29 +5,27 @@ import 'package:tg_api/tg_api.dart';
 
 import 'encoders.dart';
 
-mixin TgTaskMixin {
+final class TgTask {
+  TgTask(this.messager);
+  final Messager messager;
   final _idSeq = MessageIdSequenceGenerator();
+
+  IdSeq get nextTaskId => _idSeq.next(messager.preferEncryption);
+
+  final _tasks = <Object, MtTask>{};
+
+  Object getKey(MtTask task) {
+    return messager.getKey(task);
+  }
 
   void updateSeqno(int newSeqno) {
     _idSeq.updateSeqno(newSeqno);
   }
 
-  bool get preferEncryption;
-
-  IdSeq get nextTaskId => _idSeq.next(preferEncryption);
-
-  final _tasks = <Object, MtTask>{};
-
-  void send(MtTask task);
-
-  Object getKey(MtTask task) {
-    return task.idSeq.id;
-  }
-
   MtTask createTask(TlMethod method) {
     final task = MtTask(nextTaskId, method);
     _tasks[getKey(task)] = task;
-    send(task);
+    messager.send(task);
     return task;
   }
 
@@ -36,16 +34,12 @@ mixin TgTaskMixin {
     if (oldTask != null) {
       final newTask = oldTask._copy(nextTaskId);
       _tasks[newTask.idSeq.id] = newTask;
-      send(newTask);
+      messager.send(newTask);
       return;
     }
   }
 
   void complete(Result result, Object id) {
-    _complete(result, id);
-  }
-
-  void _complete(Result result, Object id) {
     final task = _tasks.remove(id);
     if (task == null) {
       l.Log.w('task == null, $id');
@@ -72,4 +66,14 @@ final class MtTask {
   void _complete(Result value) {
     _completer.complete(value);
   }
+}
+
+abstract mixin class Messager {
+  Object getKey(MtTask task) {
+    return task.idSeq.id;
+  }
+
+  bool get preferEncryption => true;
+
+  void send(MtTask task) {}
 }

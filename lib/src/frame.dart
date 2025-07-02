@@ -19,9 +19,10 @@ class Frame {
   factory Frame.parse(
     Uint8List data,
     Obfuscation? obfuscation,
-    List<int> authKey,
-  ) {
-    obfuscation?.recv.encryptDecrypt(data, data.length);
+    List<int> authKey, {
+    int? length,
+  }) {
+    obfuscation?.recv.encryptDecrypt(data, length ?? data.length);
 
     final br = BinaryReader(data);
 
@@ -41,7 +42,7 @@ class Frame {
     //
 
     final decryptedData = encryptDecryptMessage(
-      Uint8List.fromList(data.skip(24).toList()),
+      data.sublist(24, length ?? data.length),
       false,
       8,
       authKey,
