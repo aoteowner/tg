@@ -24,18 +24,20 @@ class AuthKeyClient extends ApiClient with Messager {
   }
 
   late StreamSubscription _sub;
+  late StreamSubscription _subRe;
   late BaseTransformer _uot;
 
   void init(Stream<Uint8List> receiver) {
     _uot = BaseTransformer.unEncrypted(
-      receiver,
       obfuscation,
     );
+    _subRe = receiver.listen(_uot.readFrame);
 
     _sub = _uot.stream.listen(_onMessage);
   }
 
   void close() {
+    _subRe.cancel();
     _sub.cancel();
     _uot.dispose();
   }
@@ -303,7 +305,7 @@ class AuthKeyClient extends ApiClient with Messager {
     return ak;
   }
 
-  Future<AuthorizationKey> exchange() async {
+  Future<AuthorizationKey> exchangeAndClosed() async {
     final newNonce = Int256.random();
     final resPQ = await _reqPqMulti();
     await Future.delayed(const Duration(milliseconds: 200));
@@ -315,6 +317,7 @@ class AuthKeyClient extends ApiClient with Messager {
       newNonce,
     );
 
+    close();
     return ak;
   }
 

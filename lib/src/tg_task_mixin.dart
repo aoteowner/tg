@@ -42,7 +42,7 @@ final class TgTask {
   void complete(Result result, Object id) {
     final task = _tasks.remove(id);
     if (task == null) {
-      l.Log.w('task == null, $id');
+      l.Log.w('task == null, $id\n${result.result?.toJson().logPretty()}');
     }
     task?._complete(result);
   }

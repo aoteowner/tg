@@ -7,38 +7,22 @@ import 'frame.dart';
 import 'obfuscation.dart';
 
 class BaseTransformer {
-  BaseTransformer(
-    this._receiver,
-    // this._msgsToAck,
-    this._obfuscation,
-    this.key,
-  ) {
-    _subscription = _receiver.listen(_readFrame);
-  }
+  BaseTransformer(this._obfuscation, this.key);
 
-  BaseTransformer.unEncrypted(
-    this._receiver,
-    this._obfuscation,
-  ) : key = const [] {
-    _subscription = _receiver.listen(_readFrame);
-  }
-
-  StreamSubscription<Uint8List>? _subscription;
+  BaseTransformer.unEncrypted(this._obfuscation) : key = const [];
 
   Future<void> dispose() async {
-    await _subscription?.cancel();
     _streamController.close();
   }
 
   final _streamController = StreamController<Frame>.broadcast();
   Stream<Frame> get stream => _streamController.stream;
 
-  final Stream<Uint8List> _receiver;
   final Obfuscation? _obfuscation;
   Uint8List _read = Uint8List(0);
   final List<int> key;
 
-  void _readFrame(Uint8List l) {
+  void readFrame(Uint8List l) {
     final length = l.length + _read.length;
     final buf = Uint8List(length);
     buf.setRange(0, _read.length, _read);

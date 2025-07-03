@@ -13,40 +13,24 @@ import 'frame.dart';
 import 'obfuscation.dart';
 import 'tg_task_mixin.dart';
 
-Future<AuthorizationKey> getTgAuthKey(
-  Stream<Uint8List> receiver,
-  Sink<List<int>> sender,
-  Obfuscation obfuscation,
-) async {
-  final dh = AuthKeyClient(
-    sender,
-    receiver,
-    obfuscation,
-  );
-  final ak = await dh.exchange();
-  dh.close();
-  return ak;
+Future<AuthorizationKey> getTgAuthKey(Stream<Uint8List> receiver,
+    Sink<List<int>> sender, Obfuscation obfuscation) {
+  return AuthKeyClient(sender, receiver, obfuscation).exchangeAndClosed();
 }
 
 /// 接收
 class MessageReceiver with HandleMessageMixin {
   MessageReceiver({
-    required Stream<Uint8List> receiver,
-    required this.data,
     required this.tgTask,
     required this.sink,
     required this.sink2,
-  }) {
-    _transformer = BaseTransformer(
-      receiver,
-      data.obfuscation,
-      data.key.key,
-    );
+  });
 
-    _sub = _transformer.stream.listen(listener);
+  void onData(Uint8List data) {
+    _transformer?.readFrame(data);
   }
 
-  late StreamSubscription _sub;
+  StreamSubscription? _sub;
 
   @override
   final Sink<UpdatesBase> sink;
@@ -54,36 +38,57 @@ class MessageReceiver with HandleMessageMixin {
   final Sink<TlObject> sink2;
 
   void close() {
-    _sub.cancel();
-    _transformer.dispose();
+    _sub?.cancel();
+    _transformer?.dispose();
   }
 
   @override
   final TgTaskBase tgTask;
-  final AuthKeyData data;
-  late final BaseTransformer _transformer;
+  AuthorizationKey? _key;
+  BaseTransformer? _transformer;
+
+  void updateTransformer(AuthorizationKey key, Obfuscation obfuscation) {
+    _sub?.cancel();
+    _transformer?.dispose();
+    final t = _transformer = BaseTransformer(obfuscation, key.key);
+    _sub = t.stream.listen(listener);
+    _key = key;
+  }
 
   @override
   void updateSalt(int newSalt) {
-    data.key.salt = newSalt;
+    _key?.salt = newSalt;
   }
 }
 
 /// 发送
 final class AuthKeyData {
-  AuthKeyData(this.key, this.id, Obfuscation? obfuscation)
-      : obfuscation = obfuscation ?? Obfuscation.random(false, id);
-  final AuthorizationKey key;
-  Obfuscation obfuscation;
+  AuthKeyData(this._key, this.id)
+      : _obfuscation = Obfuscation.random(false, id);
+  AuthorizationKey? _key;
+  Obfuscation _obfuscation;
+
+  AuthorizationKey? get key => _key;
+  Obfuscation get obfuscation => _obfuscation;
   final int id;
 
+  void updateAuthKey(AuthorizationKey authKey) {
+    _key = authKey;
+  }
+
   void updateObf() {
-    obfuscation = Obfuscation.random(false, id);
+    _obfuscation = Obfuscation.random(false, id);
   }
 
   Uint8List encrypt(MtTask task) {
-    final buffer = encodeWithAuth(task.method, task.idSeq, 10, key);
+    if (key case var key?) {
+      final buffer = encodeWithAuth(task.method, task.idSeq, 10, key);
 
+      obfuscation.send.encryptDecrypt(buffer, buffer.length);
+      return buffer;
+    }
+
+    final buffer = encodeNoAuth(task.method, task.idSeq);
     obfuscation.send.encryptDecrypt(buffer, buffer.length);
     return buffer;
   }
@@ -92,9 +97,14 @@ final class AuthKeyData {
 final class MessageIo with Messager, TgTaskBase {
   MessageIo._(this.data);
   late final TgTask tgTask = TgTask(this);
-  final AuthKeyData data;
 
-  MessageReceiver? _receiver;
+  final AuthKeyData data;
+  late final receiver = MessageReceiver(
+    tgTask: this,
+    sink: _controller,
+    sink2: _controller2,
+  );
+
   Sink<List<int>>? _sender;
 
   final _controller = StreamController<UpdatesBase>.broadcast();
@@ -104,22 +114,18 @@ final class MessageIo with Messager, TgTaskBase {
 
   Stream<TlObject> get streamObj => _controller2.stream;
 
-  factory MessageIo(AuthorizationKey key, int id, {Obfuscation? obfuscation}) {
-    final data = AuthKeyData(key, id, obfuscation);
-    return MessageIo._(data);
+  factory MessageIo(AuthorizationKey? key, int id) {
+    return MessageIo._(AuthKeyData(key, id));
   }
 
-  void update(Stream<Uint8List> receiver, Sink<List<int>> sender) {
-    _receiver?.close();
-    _receiver = MessageReceiver(
-      receiver: receiver,
-      data: data,
-      tgTask: this,
-      sink: _controller,
-      sink2: _controller2,
-    );
+  void onData(Uint8List data) {
+    receiver.onData(data);
+  }
 
+  void update(Sink<List<int>> sender, AuthorizationKey key) {
     _sender = sender;
+    receiver.updateTransformer(key, data.obfuscation);
+    data.updateAuthKey(key);
 
     if (_taskCache.isNotEmpty) {
       final local = List.of(_taskCache);
@@ -128,6 +134,10 @@ final class MessageIo with Messager, TgTaskBase {
         sender.add(data.encrypt(task));
       }
     }
+  }
+
+  void disconnect() {
+    _sender = null;
   }
 
   final List<MtTask> _taskCache = [];
@@ -156,8 +166,7 @@ final class MessageIo with Messager, TgTaskBase {
   }
 
   void close() {
-    _receiver?.close();
-    _receiver = null;
+    receiver.close();
     _controller.close();
     _controller2.close();
   }
