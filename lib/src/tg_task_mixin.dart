@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:nop/nop.dart' as l;
+import 'package:tg_api/api.dart';
 import 'package:tg_api/tg_api.dart';
 
 import 'encoders.dart';
@@ -39,15 +40,32 @@ final class TgTask {
     }
   }
 
+  void resend() {
+    for (var entry in _tasks.entries) {
+      messager.send(entry.value);
+    }
+  }
+
   void complete(Result result, Object id) {
     final task = _tasks.remove(id);
     if (task == null) {
-      l.Log.w('task == null, $id\n${result.result?.toJson().logPretty()}');
+      l.Log.w('task == null, $id: ${result.result?.toJson().logPretty()}');
     }
     task?._complete(result);
   }
-}
 
+  void close() {
+    final local = Map.of(_tasks);
+    _tasks.clear();
+    for (var entry in local.entries) {
+      entry.value._complete(
+        Result.error(
+          RpcError(errorCode: -1, errorMessage: 'closed'),
+        ),
+      );
+    }
+  }
+}
 
 final class MtTask {
   MtTask(this.idSeq, this.method, [Completer<Result>? c])

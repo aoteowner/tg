@@ -72,7 +72,7 @@ final class AuthKeyData {
   Obfuscation get obfuscation => _obfuscation;
   final int id;
 
-  void updateAuthKey(AuthorizationKey authKey) {
+  void updateAuthKey(AuthorizationKey? authKey) {
     _key = authKey;
   }
 
@@ -123,30 +123,22 @@ final class MessageIo with Messager, TgTaskBase {
   }
 
   void update(Sink<List<int>> sender, AuthorizationKey key) {
+    assert(!_controller.isClosed && !_controller2.isClosed);
+
     _sender = sender;
     receiver.updateTransformer(key, data.obfuscation);
     data.updateAuthKey(key);
-
-    if (_taskCache.isNotEmpty) {
-      final local = List.of(_taskCache);
-      _taskCache.clear();
-      for (var task in local) {
-        sender.add(data.encrypt(task));
-      }
-    }
+    tgTask.resend();
   }
 
   void disconnect() {
     _sender = null;
   }
 
-  final List<MtTask> _taskCache = [];
   @override
   void send(MtTask task) {
     if (_sender case var sender?) {
       sender.add(data.encrypt(task));
-    } else {
-      _taskCache.add(task);
     }
   }
 
@@ -165,8 +157,12 @@ final class MessageIo with Messager, TgTaskBase {
     tgTask.updateSeqno(newSeqno);
   }
 
+  bool get isClosed => _controller.isClosed || _controller2.isClosed;
+
   void close() {
     receiver.close();
+    tgTask.close();
+    _sender = null;
     _controller.close();
     _controller2.close();
   }

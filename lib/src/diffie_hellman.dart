@@ -31,7 +31,8 @@ class AuthKeyClient extends ApiClient with Messager {
     _uot = BaseTransformer.unEncrypted(
       obfuscation,
     );
-    _subRe = receiver.listen(_uot.readFrame);
+    _subRe =
+        receiver.listen(_uot.readFrame, onDone: _onDone, onError: _onError);
 
     _sub = _uot.stream.listen(_onMessage);
   }
@@ -40,6 +41,18 @@ class AuthKeyClient extends ApiClient with Messager {
     _subRe.cancel();
     _sub.cancel();
     _uot.dispose();
+    tgTask.close();
+  }
+
+  bool _isClosed = false;
+  void _onDone() {
+    _isClosed = true;
+    tgTask.close();
+  }
+
+  void _onError(Object e) {
+    _isClosed = true;
+    tgTask.close();
   }
 
   final Obfuscation obfuscation;
@@ -348,8 +361,13 @@ class AuthKeyClient extends ApiClient with Messager {
   late final tgTask = TgTask(this);
 
   @override
-  Future<Result<TlObject>> invoke(TlMethod method) =>
-      tgTask.createTask(method).future;
+  Future<Result<TlObject>> invoke(TlMethod method) {
+    if (_isClosed) {
+      return Future.value(
+          Result.error(RpcError(errorCode: -1, errorMessage: 'closed.')));
+    }
+    return tgTask.createTask(method).future;
+  }
 
   @override
   bool get preferEncryption => false;

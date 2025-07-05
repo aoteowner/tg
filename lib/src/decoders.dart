@@ -35,8 +35,13 @@ class BaseTransformer {
       final temp = _read.sublist(0, 4);
       _obfuscation?.recv.encryptDecrypt(temp, 4);
       final length = temp.buffer.asByteData().getInt32(0, Endian.little);
+      if (length < 0) {
+        Log.w("error: length $length.");
+        _read = Uint8List(0);
+        return;
+      }
 
-      if (_read.length < length) break;
+      if (_read.length < length + 4) break;
       _read = _read.sublist(4);
 
       try {
