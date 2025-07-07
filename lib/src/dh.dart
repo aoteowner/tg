@@ -13,7 +13,7 @@ int pqFactorize(int pq) {
     final q = (17 + random.nextInt(15)) % (pq - 1);
     var x =
         (random.nextInt(1 << 32) + random.nextInt(1 << 32) << 31) % (pq - 1) +
-            1;
+        1;
     var y = x;
     int lim = 1 << (min(5, i) + 18);
     for (int j = 1; j < lim; j++) {

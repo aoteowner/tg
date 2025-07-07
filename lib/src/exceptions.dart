@@ -1,15 +1,10 @@
 import 'package:tg_api/api.dart';
 
 /// Raised when a bad message is sent to the server.
-class BadMessageException implements Exception {
-  const BadMessageException(this.result);
-
-  /// Exception result.
-  final BadMsgNotification result;
-
+extension BadMessageException on BadMsgNotification {
   /// Get the readable error message.
   String get errorMessage {
-    final error = result.errorCode;
+    final error = errorCode;
 
     switch (error) {
       case 16:
@@ -37,12 +32,6 @@ class BadMessageException implements Exception {
     }
 
     return error.toString();
-  }
-
-  @override
-  String toString() {
-    final errorCode = result.errorCode;
-    return '$errorCode: $errorMessage';
   }
 }
 

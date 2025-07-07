@@ -9,18 +9,14 @@ import 'encoders.dart';
 final class TgTask {
   TgTask(this.messager);
   final Messager messager;
-  final _idSeq = MessageIdSequenceGenerator();
+  final idSeq = MessageIdSequenceGenerator();
 
-  IdSeq get nextTaskId => _idSeq.next(messager.preferEncryption);
+  IdSeq get nextTaskId => idSeq.next(messager.preferEncryption);
 
   final _tasks = <Object, MtTask>{};
 
   Object getKey(MtTask task) {
     return messager.getKey(task);
-  }
-
-  void updateSeqno(int newSeqno) {
-    _idSeq.updateSeqno(newSeqno);
   }
 
   MtTask createTask(TlMethod method) {
@@ -30,27 +26,36 @@ final class TgTask {
     return task;
   }
 
-  void removeAndCreateNew(int? id) {
+  void removeAndCreateNew(Object? id) {
     final oldTask = _tasks.remove(id);
     if (oldTask != null) {
       final newTask = oldTask._copy(nextTaskId);
-      _tasks[newTask.idSeq.id] = newTask;
+      _tasks[getKey(newTask)] = newTask;
       messager.send(newTask);
-      return;
     }
   }
 
   void resend() {
-    for (var entry in _tasks.entries) {
-      messager.send(entry.value);
+    idSeq.resetSeqno(_lastCompletedSeqno);
+
+    final list = _tasks.keys.toList();
+    for (var id in list) {
+      removeAndCreateNew(id);
     }
   }
 
+  int? _lastCompletedSeqno;
   void complete(Result result, Object id) {
     final task = _tasks.remove(id);
-    if (task == null) {
-      l.Log.w('task == null, $id: ${result.result?.toJson().logPretty()}');
+    if (task != null) {
+      _lastCompletedSeqno = task.idSeq.rawSeqno;
     }
+
+    assert(
+      task != null ||
+          l.Log.w('task == null, $id: ${result.result?.runtimeType}'),
+    );
+
     task?._complete(result);
   }
 
@@ -59,9 +64,7 @@ final class TgTask {
     _tasks.clear();
     for (var entry in local.entries) {
       entry.value._complete(
-        Result.error(
-          RpcError(errorCode: -1, errorMessage: 'closed'),
-        ),
+        Result.error(RpcError(errorCode: -1, errorMessage: 'closed')),
       );
     }
   }
@@ -69,7 +72,7 @@ final class TgTask {
 
 final class MtTask {
   MtTask(this.idSeq, this.method, [Completer<Result>? c])
-      : _completer = c ?? Completer<Result>();
+    : _completer = c ?? Completer<Result>();
   final IdSeq idSeq;
   final TlMethod method;
 

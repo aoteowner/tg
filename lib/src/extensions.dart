@@ -107,18 +107,22 @@ extension Prime on BigInt {
 extension XInt on int {
   Uint8List asUint64List([bool littleEndian = true]) {
     final b = Uint8List(8);
-    b.buffer
-        .asByteData()
-        .setUint64(0, this, littleEndian ? Endian.little : Endian.big);
+    b.buffer.asByteData().setUint64(
+      0,
+      this,
+      littleEndian ? Endian.little : Endian.big,
+    );
 
     return b;
   }
 
   Uint8List asUint32List([bool littleEndian = true]) {
     final b = Uint8List(4);
-    b.buffer
-        .asByteData()
-        .setUint32(0, this, littleEndian ? Endian.little : Endian.big);
+    b.buffer.asByteData().setUint32(
+      0,
+      this,
+      littleEndian ? Endian.little : Endian.big,
+    );
 
     return b;
   }

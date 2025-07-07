@@ -16,7 +16,7 @@ class Obfuscation {
 
     rng.getBytes(random, 0, 58);
 
-// TODO (xclud):
+    // TODO (xclud):
     // while (preamble[0] == 0xef ||
     // 	BinaryPrimitives.ReadUInt32LittleEndian(preamble) is 0x44414548 or 0x54534f50 or 0x20544547 or 0x4954504f or 0x02010316 or 0xdddddddd or 0xeeeeeeee ||
     // 	BinaryPrimitives.ReadInt32LittleEndian(preamble.AsSpan(4)) == 0);
@@ -27,8 +27,12 @@ class Obfuscation {
   /// Generate an obfuscator from a pre-computed preamble.
   ///
   /// [random] Must be 58 bytes random.
-  factory Obfuscation.preamble(Uint8List random, bool padded, int dcId,
-      [Uint8List? secret]) {
+  factory Obfuscation.preamble(
+    Uint8List random,
+    bool padded,
+    int dcId, [
+    Uint8List? secret,
+  ]) {
     final protocolId = padded ? 0xDD : 0xEE;
     final preamble = Uint8List(64);
 
@@ -55,10 +59,12 @@ class Obfuscation {
     final sec = secret;
     if (sec != null) {
       sendKey = Uint8List.fromList(
-          sha256([...sendKey.sublist(0, 32), ...sec.sublist(0, 16)]));
+        sha256([...sendKey.sublist(0, 32), ...sec.sublist(0, 16)]),
+      );
 
       recvKey = Uint8List.fromList(
-          sha256([...recvKey.sublist(0, 32), ...sec.sublist(0, 16)]));
+        sha256([...recvKey.sublist(0, 32), ...sec.sublist(0, 16)]),
+      );
     }
 
     final sendCtr = AesCtr(sendKey, sendIV);

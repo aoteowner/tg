@@ -10,19 +10,17 @@ import 'package:tg_api/tg_api.dart';
 import 'crypto.dart';
 import 'private.dart';
 
-InputCheckPasswordSRP check2FA(
-  Password accountPassword,
-  String password,
-) {
+InputCheckPasswordSRP check2FA(Password accountPassword, String password) {
   final currentAlgo = accountPassword.currentAlgo;
   final newAlgo = accountPassword.newAlgo;
 
-  final algo = currentAlgo != null &&
+  final algo =
+      currentAlgo != null &&
           currentAlgo
               is PasswordKdfAlgoSHA256SHA256PBKDF2HMACSHA512iter100000SHA256ModPow
       ? currentAlgo
       : newAlgo
-          as PasswordKdfAlgoSHA256SHA256PBKDF2HMACSHA512iter100000SHA256ModPow;
+            as PasswordKdfAlgoSHA256SHA256PBKDF2HMACSHA512iter100000SHA256ModPow;
 
   if (algo == newAlgo) {
     // TODO
@@ -60,11 +58,7 @@ InputCheckPasswordSRP check2FA(
 
   // If we're computing a new password
   if (accountPassword.currentAlgo == null) {
-    return InputCheckPasswordSRP(
-      a: v.to256Bytes(),
-      srpId: 0,
-      m1: Uint8List(0),
-    );
+    return InputCheckPasswordSRP(a: v.to256Bytes(), srpId: 0, m1: Uint8List(0));
   }
 
   final gB = bigEndianInteger(accountPassword.srpB!);

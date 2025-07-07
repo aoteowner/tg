@@ -8,12 +8,7 @@ import 'obfuscation.dart';
 import 'private.dart';
 
 class Frame {
-  const Frame(
-    this.message,
-    this.messageId,
-    this.authKeyId,
-    this.seqno,
-  );
+  const Frame(this.message, this.messageId, this.authKeyId, this.seqno);
 
   /// Parse from [Uint8List].
   factory Frame.parse(

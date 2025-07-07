@@ -6,8 +6,8 @@ import 'private.dart';
 class AuthorizationKey {
   /// Constructor.
   AuthorizationKey(this.id, this.key, this.salt)
-      : assert(id != 0, 'Id must not be zero.'),
-        assert(key.length == 256, 'Key must be 256 bytes.');
+    : assert(id != 0, 'Id must not be zero.'),
+      assert(key.length == 256, 'Key must be 256 bytes.');
 
   /// Deserialize from JSON.
   factory AuthorizationKey.fromJson(Map<String, dynamic> json) {
@@ -31,11 +31,7 @@ class AuthorizationKey {
 
   /// Serialize to JSON.
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'key': hexToStr(key),
-      'salt': salt,
-    };
+    return {'id': id, 'key': hexToStr(key), 'salt': salt};
   }
 
   @override

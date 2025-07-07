@@ -53,11 +53,7 @@ Uint8List fromHexToUint8List(String value) {
   return r;
 }
 
-Uint8List aesIgeEncryptDecrypt(
-  Uint8List input,
-  AesKeyIV keys,
-  bool encrypt,
-) {
+Uint8List aesIgeEncryptDecrypt(Uint8List input, AesKeyIV keys, bool encrypt) {
   assert(input.length % 16 == 0, 'AES_IGE input size not divisible by 16.');
   final aes = AesEcb(Key(keys.key));
 
@@ -114,10 +110,7 @@ AesKeyIV constructTmpAESKeyIV(Int128 serverNonce, Int256 newNonce) {
   final key = [...x1, ...x2.take(12)];
   final iv = [...x2.skip(12), ...x3, ...newNonce.data.take(4)];
 
-  return AesKeyIV(
-    Uint8List.fromList(key),
-    Uint8List.fromList(iv),
-  );
+  return AesKeyIV(Uint8List.fromList(key), Uint8List.fromList(iv));
 }
 
 void checkGoodPrime(BigInt p, int g) {
@@ -173,7 +166,8 @@ void checkGoodGaAndGb(BigInt g, BigInt dhPrime) {
   // We recommend checking that g_a and g_b are between 2^{2048-64} and dh_prime - 2^{2048-64} as well.
   if (g.bitLength < 2048 - 64 || (dhPrime - g).bitLength < 2048 - 64) {
     throw Exception(
-        'g^a or g^b is not between 2^{2048-64} and dhPrime - 2^{2048-64}');
+      'g^a or g^b is not between 2^{2048-64} and dhPrime - 2^{2048-64}',
+    );
   }
 }
 

@@ -8,10 +8,7 @@ import 'extensions.dart';
 import 'private.dart';
 import 'public_keys.dart';
 
-Uint8List encodeNoAuth(
-  TlObject message,
-  IdSeq m,
-) {
+Uint8List encodeNoAuth(TlObject message, IdSeq m) {
   final messageBuffer = message.asUint8List();
   final buffer = <int>[
     ...(messageBuffer.length + 20).asUint32List(),
@@ -75,13 +72,15 @@ class MessageIdSequenceGenerator {
   int _seqno = 0;
   int serverTicksOffset = 0;
 
-  void updateSeqno(int newSeqno) {
-    _seqno = newSeqno;
+  void resetSeqno(int? savedSeqno) {
+    if (savedSeqno == null) return;
+    _seqno = savedSeqno;
   }
 
   IdSeq next(bool preferEncryption) {
     var msgId = DateTime.now().ticks + serverTicksOffset - 621355968000000000;
-    msgId = msgId * 428 +
+    msgId =
+        msgId * 428 +
         (msgId >> 24) *
             25110956; // approximately unixtime*2^32 and divisible by 4
 
@@ -93,12 +92,13 @@ class MessageIdSequenceGenerator {
 
     final seqno = preferEncryption ? _seqno++ * 2 + 1 : _seqno * 2;
 
-    return IdSeq(msgId, seqno);
+    return IdSeq(msgId, seqno, _seqno);
   }
 }
 
 class IdSeq {
-  const IdSeq(this.id, this.seqno);
+  const IdSeq(this.id, this.seqno, this.rawSeqno);
   final int id;
   final int seqno;
+  final int rawSeqno;
 }

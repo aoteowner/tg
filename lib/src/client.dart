@@ -13,29 +13,19 @@ import 'frame.dart';
 import 'obfuscation.dart';
 import 'tg_task_mixin.dart';
 
-Future<AuthorizationKey> getTgAuthKey(Stream<Uint8List> receiver,
-    Sink<List<int>> sender, Obfuscation obfuscation) {
+Future<AuthorizationKey> getTgAuthKey(
+  Stream<Uint8List> receiver,
+  Sink<List<int>> sender,
+  Obfuscation obfuscation,
+) {
   return AuthKeyClient(sender, receiver, obfuscation).exchangeAndClosed();
 }
 
 /// 接收
 class MessageReceiver with HandleMessageMixin {
-  MessageReceiver({
-    required this.tgTask,
-    required this.sink,
-    required this.sink2,
-  });
-
-  void onData(Uint8List data) {
-    _transformer?.readFrame(data);
-  }
+  MessageReceiver({required this.tgTask});
 
   StreamSubscription? _sub;
-
-  @override
-  final Sink<UpdatesBase> sink;
-  @override
-  final Sink<TlObject> sink2;
 
   void close() {
     _sub?.cancel();
@@ -47,10 +37,15 @@ class MessageReceiver with HandleMessageMixin {
   AuthorizationKey? _key;
   BaseTransformer? _transformer;
 
-  void updateTransformer(AuthorizationKey key, Obfuscation obfuscation) {
+  void upateAuthKey(
+    AuthorizationKey key,
+    Obfuscation obfuscation,
+    void Function()? onReconnect,
+  ) {
     _sub?.cancel();
     _transformer?.dispose();
-    final t = _transformer = BaseTransformer(obfuscation, key.key);
+    final t = _transformer = BaseTransformer(obfuscation, key.key)
+      ..reConnect = onReconnect;
     _sub = t.stream.listen(listener);
     _key = key;
   }
@@ -64,7 +59,7 @@ class MessageReceiver with HandleMessageMixin {
 /// 发送
 final class AuthKeyData {
   AuthKeyData(this._key, this.id)
-      : _obfuscation = Obfuscation.random(false, id);
+    : _obfuscation = Obfuscation.random(false, id);
   AuthorizationKey? _key;
   Obfuscation _obfuscation;
 
@@ -80,130 +75,86 @@ final class AuthKeyData {
     _obfuscation = Obfuscation.random(false, id);
   }
 
-  Uint8List encrypt(MtTask task) {
+  Uint8List encrypt(TlObject obj, IdSeq idSeq, int sessionId) {
     if (key case var key?) {
-      final buffer = encodeWithAuth(task.method, task.idSeq, 10, key);
+      final buffer = encodeWithAuth(obj, idSeq, sessionId, key);
 
       obfuscation.send.encryptDecrypt(buffer, buffer.length);
       return buffer;
     }
+    return sendBase(obj, idSeq);
+  }
 
-    final buffer = encodeNoAuth(task.method, task.idSeq);
+  Uint8List sendBase(TlObject obj, IdSeq idSeq) {
+    final buffer = encodeNoAuth(obj, idSeq);
     obfuscation.send.encryptDecrypt(buffer, buffer.length);
     return buffer;
   }
 }
 
-final class MessageIo with Messager, TgTaskBase {
-  MessageIo._(this.data);
+final class MessageIo with Messager {
+  MessageIo._(this.data, this.base) : receiver = MessageReceiver(tgTask: base);
   late final TgTask tgTask = TgTask(this);
 
+  final TgTaskBase base;
   final AuthKeyData data;
-  late final receiver = MessageReceiver(
-    tgTask: this,
-    sink: _controller,
-    sink2: _controller2,
-  );
+  final MessageReceiver receiver;
 
-  Sink<List<int>>? _sender;
-
-  final _controller = StreamController<UpdatesBase>.broadcast();
-  final _controller2 = StreamController<TlObject>.broadcast();
-
-  Stream<UpdatesBase> get stream => _controller.stream;
-
-  Stream<TlObject> get streamObj => _controller2.stream;
-
-  factory MessageIo(AuthorizationKey? key, int id) {
-    return MessageIo._(AuthKeyData(key, id));
+  factory MessageIo(AuthorizationKey? key, int id, TgTaskBase base) {
+    return MessageIo._(AuthKeyData(key, id), base);
   }
 
   void onData(Uint8List data) {
-    receiver.onData(data);
+    receiver._transformer?.readFrame(data);
   }
 
-  void update(Sink<List<int>> sender, AuthorizationKey key) {
-    assert(!_controller.isClosed && !_controller2.isClosed);
-
-    _sender = sender;
-    receiver.updateTransformer(key, data.obfuscation);
+  void Function()? onReconnect;
+  void update(AuthorizationKey key) {
+    receiver.upateAuthKey(key, data.obfuscation, onReconnect);
     data.updateAuthKey(key);
     tgTask.resend();
   }
 
-  void disconnect() {
-    _sender = null;
-  }
-
+  void Function(MtTask task)? onSend;
   @override
   void send(MtTask task) {
-    if (_sender case var sender?) {
-      sender.add(data.encrypt(task));
-    }
+    onSend?.call(task);
   }
-
-  @override
-  void complete(Result<TlObject> result, Object id) {
-    tgTask.complete(result, id);
-  }
-
-  @override
-  void removeAndCreateNew(int? id) {
-    tgTask.removeAndCreateNew(id);
-  }
-
-  @override
-  void updateSeqno(int newSeqno) {
-    tgTask.updateSeqno(newSeqno);
-  }
-
-  bool get isClosed => _controller.isClosed || _controller2.isClosed;
 
   void close() {
     receiver.close();
     tgTask.close();
-    _sender = null;
-    _controller.close();
-    _controller2.close();
   }
 }
 
 abstract mixin class TgTaskBase {
   void removeAndCreateNew(int? id);
   void complete(Result result, Object id);
-  void updateSeqno(int newSeqno);
+
+  void onNewSessionCreated(NewSessionCreated session);
+
+  void onReceiverData(TlObject data);
 }
 
 mixin HandleMessageMixin {
   TgTaskBase get tgTask;
-  Sink<UpdatesBase> get sink;
-  Sink<TlObject> get sink2;
-  void updateSeqno(int newSeqno) {
-    tgTask.updateSeqno(newSeqno);
-  }
 
   void updateSalt(int newSalt);
 
-  int? _seqno;
   void listener(Frame frame) {
-    _seqno = frame.seqno;
     _handleIncomingMessage(frame.message);
   }
 
   void _handleIncomingMessage(TlObject msg) {
     switch (msg) {
-      case UpdatesBase():
-        sink.add(msg);
+      case Pong():
+        tgTask.complete(Result.ok(msg), msg.msgId);
       case Message():
         _handleIncomingMessage(msg.body);
       case MsgContainer():
         for (final message in msg.messages) {
           _handleIncomingMessage(message);
         }
-
-      case BadMsgNotification():
-        if (_seqno case var no?) updateSeqno(no);
-        tgTask.removeAndCreateNew(msg.badMsgId);
 
       case BadServerSalt salt:
         updateSalt(salt.newServerSalt);
@@ -215,11 +166,14 @@ mixin HandleMessageMixin {
           case RpcError():
             tgTask.complete(Result.error(result), msg.reqMsgId);
           case GzipPacked():
-            final gZippedData =
-                const GZipDecoder().decodeBytes(result.packedData);
+            final gZippedData = const GZipDecoder().decodeBytes(
+              result.packedData,
+            );
             final newObj = BinaryReader(gZippedData).readObject();
-            final newRpcResult =
-                RpcResult(reqMsgId: msg.reqMsgId, result: newObj);
+            final newRpcResult = RpcResult(
+              reqMsgId: msg.reqMsgId,
+              result: newObj,
+            );
             _handleIncomingMessage(newRpcResult);
           case _:
             tgTask.complete(Result.ok(msg.result), msg.reqMsgId);
@@ -230,7 +184,7 @@ mixin HandleMessageMixin {
         final newObj = BinaryReader(gZippedData).readObject();
         _handleIncomingMessage(newObj);
       case var v:
-        sink2.add(v);
+        tgTask.onReceiverData(v);
     }
   }
 }

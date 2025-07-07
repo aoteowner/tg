@@ -16,8 +16,11 @@ import 'public_keys.dart';
 class AuthKeyClient extends ApiClient with Messager {
   AuthKeyClient._(this.sender, this.obfuscation);
 
-  factory AuthKeyClient(Sink<List<int>> sender, Stream<Uint8List> receiver,
-      Obfuscation obfuscation) {
+  factory AuthKeyClient(
+    Sink<List<int>> sender,
+    Stream<Uint8List> receiver,
+    Obfuscation obfuscation,
+  ) {
     final client = AuthKeyClient._(sender, obfuscation);
     client.init(receiver);
     return client;
@@ -28,11 +31,12 @@ class AuthKeyClient extends ApiClient with Messager {
   late BaseTransformer _uot;
 
   void init(Stream<Uint8List> receiver) {
-    _uot = BaseTransformer.unEncrypted(
-      obfuscation,
+    _uot = BaseTransformer.unEncrypted(obfuscation);
+    _subRe = receiver.listen(
+      _uot.readFrame,
+      onDone: _onDone,
+      onError: _onError,
     );
-    _subRe =
-        receiver.listen(_uot.readFrame, onDone: _onDone, onError: _onError);
 
     _sub = _uot.stream.listen(_onMessage);
   }
@@ -90,8 +94,10 @@ class AuthKeyClient extends ApiClient with Messager {
     Int256 newNonce, {
     int? dc,
   }) async {
-    final fingerprint = resPQ.serverPublicKeyFingerprints
-        .firstWhere((x) => rsaKeys[x] != null, orElse: () => 0);
+    final fingerprint = resPQ.serverPublicKeyFingerprints.firstWhere(
+      (x) => rsaKeys[x] != null,
+      orElse: () => 0,
+    );
 
     final publicKey = rsaKeys[fingerprint]!;
     // final n = _bigEndianInteger(publicKey.n);
@@ -128,11 +134,7 @@ class AuthKeyClient extends ApiClient with Messager {
       // length before padding
       final clearLength = msg.length;
 
-      rng.getBytes(
-        clearBuffer,
-        clearLength + 32,
-        192 - clearLength,
-      );
+      rng.getBytes(clearBuffer, clearLength + 32, 192 - clearLength);
 
       final hash = sha256(clearBuffer.take(192 + 32).toList());
       clearBuffer.setRange(192 + 32, 192 + 32 + hash.length, hash);
@@ -247,8 +249,9 @@ class AuthKeyClient extends ApiClient with Messager {
     }
 
     final paddingLength = answer.length - answerReader.position;
-    final hash =
-        sha1(answer.skip(20).take(answer.length - paddingLength - 20).toList());
+    final hash = sha1(
+      answer.skip(20).take(answer.length - paddingLength - 20).toList(),
+    );
 
     print('${hexToStr(answerHash)} == ${hexToStr(hash)}');
 
@@ -296,24 +299,23 @@ class AuthKeyClient extends ApiClient with Messager {
 
     if (result is DhGenOk) {
       print(
-          '0x${hexToStr(expectedNewNonceNHash.skip(4))} == ${result.newNonceHash1}');
+        '0x${hexToStr(expectedNewNonceNHash.skip(4))} == ${result.newNonceHash1}',
+      );
     }
 
-    final authKeyID =
-        BinaryReader(Uint8List.fromList(authKeyHash.skip(12).toList()))
-            .readInt64(false);
+    final authKeyID = BinaryReader(
+      Uint8List.fromList(authKeyHash.skip(12).toList()),
+    ).readInt64(false);
 
-    final saltLeft = BinaryReader(Uint8List.fromList(pqInnerData.newNonce.data))
-        .readInt64(false);
+    final saltLeft = BinaryReader(
+      Uint8List.fromList(pqInnerData.newNonce.data),
+    ).readInt64(false);
 
-    final saltRight = BinaryReader(Uint8List.fromList(resPQ.serverNonce.data))
-        .readInt64(false);
+    final saltRight = BinaryReader(
+      Uint8List.fromList(resPQ.serverNonce.data),
+    ).readInt64(false);
 
-    final ak = AuthorizationKey(
-      authKeyID,
-      authKey,
-      saltLeft ^ saltRight,
-    );
+    final ak = AuthorizationKey(authKeyID, authKey, saltLeft ^ saltRight);
 
     return ak;
   }
@@ -324,11 +326,7 @@ class AuthKeyClient extends ApiClient with Messager {
     await Future.delayed(const Duration(milliseconds: 200));
     final serverDHparams = await _reqDHParams(resPQ, newNonce);
     await Future.delayed(const Duration(milliseconds: 200));
-    final ak = await _createAuthKey(
-      resPQ,
-      serverDHparams,
-      newNonce,
-    );
+    final ak = await _createAuthKey(resPQ, serverDHparams, newNonce);
 
     close();
     return ak;
@@ -364,7 +362,8 @@ class AuthKeyClient extends ApiClient with Messager {
   Future<Result<TlObject>> invoke(TlMethod method) {
     if (_isClosed) {
       return Future.value(
-          Result.error(RpcError(errorCode: -1, errorMessage: 'closed.')));
+        Result.error(RpcError(errorCode: -1, errorMessage: 'closed.')),
+      );
     }
     return tgTask.createTask(method).future;
   }
