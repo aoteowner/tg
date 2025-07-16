@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:nop/nop.dart' as l;
 import 'package:tg_api/api.dart';
 import 'package:tg_api/tg_api.dart';
 
@@ -36,27 +35,17 @@ final class TgTask {
   }
 
   void resend() {
-    idSeq.resetSeqno(_lastCompletedSeqno);
-
     final list = _tasks.keys.toList();
     for (var id in list) {
       removeAndCreateNew(id);
     }
   }
 
-  int? _lastCompletedSeqno;
-  void complete(Result result, Object id) {
+  bool complete(Result result, Object id) {
     final task = _tasks.remove(id);
-    if (task != null) {
-      _lastCompletedSeqno = task.idSeq.rawSeqno;
-    }
-
-    assert(
-      task != null ||
-          l.Log.w('task == null, $id: ${result.result?.runtimeType}'),
-    );
 
     task?._complete(result);
+    return task != null;
   }
 
   void close() {
@@ -86,6 +75,18 @@ final class MtTask {
 
   void _complete(Result value) {
     _completer.complete(value);
+  }
+
+  void completeError() {
+    if (_completer.isCompleted) return;
+    _completer.complete(
+      Result.error(RpcError(errorCode: -1, errorMessage: 'removed.')),
+    );
+  }
+
+  void complete(TlObject value) {
+    if (_completer.isCompleted) return;
+    _completer.complete(Result.ok(value));
   }
 }
 

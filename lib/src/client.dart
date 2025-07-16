@@ -131,8 +131,6 @@ abstract mixin class TgTaskBase {
   void removeAndCreateNew(int? id);
   void complete(Result result, Object id);
 
-  void onNewSessionCreated(NewSessionCreated session);
-
   void onReceiverData(TlObject data);
 }
 
@@ -147,8 +145,6 @@ mixin HandleMessageMixin {
 
   void _handleIncomingMessage(TlObject msg) {
     switch (msg) {
-      case Pong():
-        tgTask.complete(Result.ok(msg), msg.msgId);
       case Message():
         _handleIncomingMessage(msg.body);
       case MsgContainer():
