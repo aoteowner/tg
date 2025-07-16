@@ -145,7 +145,7 @@ mixin HandleMessageMixin {
 
   void _handleIncomingMessage(TlObject msg) {
     switch (msg) {
-      case Message():
+      case MessageUnHash():
         _handleIncomingMessage(msg.body);
       case MsgContainer():
         for (final message in msg.messages) {

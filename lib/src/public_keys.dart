@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:tg_api/api.dart';
 
-final _production = RsaPublicKey(
+final _production = RsaPublicKeyUnHash(
   e: Uint8List.fromList([1, 0, 1]),
   n: Uint8List.fromList([
     0xE8,
@@ -266,7 +266,7 @@ final _production = RsaPublicKey(
   ]),
 );
 
-final _test = RsaPublicKey(
+final _test = RsaPublicKeyUnHash(
   e: Uint8List.fromList([1, 0, 1]),
   n: Uint8List.fromList([
     0xC8,
