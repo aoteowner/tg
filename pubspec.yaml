@@ -5,9 +5,9 @@ homepage: https://pwa.ir
 repository: https://github.com/telegramflutter/tg
 publish_to: none
 topics:
- - telegram
- - tdlib
- 
+  - telegram
+  - tdlib
+
 environment:
   sdk: ^3.8.0
 
@@ -19,12 +19,18 @@ dependencies:
   #     url: https://github.com/aoteowner/t
   #     ref: 33671eb88
   tg_api:
-    path: ../tg_api
+    git:
+      url: git@github.com:sersr/tg_api
+      ref: master
 
   archive: ^4.0.7
   pointycastle:
   nop: ^0.2.0+3
   meta: any
+
+dependency_overrides:
+  tg_api:
+    path: ../tg_api
 
 dev_dependencies:
   lints: ^6.0.0
