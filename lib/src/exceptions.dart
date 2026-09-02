@@ -1,7 +1,7 @@
-import 'package:tg_api/api.dart';
+import 'package:tg_api/mtproto_api.dart';
 
-/// Raised when a bad message is sent to the server.
-extension BadMessageException on BadMsgNotification {
+/// Raised when a bad message is sent to the server.∏
+extension BadMessageException on BadMsgNotificationHasha7eff811 {
   /// Get the readable error message.
   String get errorMessage {
     final error = errorCode;

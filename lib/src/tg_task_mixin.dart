@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:tg_api/api.dart';
-import 'package:tg_api/tg_api.dart';
 
 import 'encoders.dart';
 

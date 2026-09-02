@@ -17,7 +17,6 @@ class BaseTransformer {
 
   final _streamController = StreamController<Frame>.broadcast();
   Stream<Frame> get stream => _streamController.stream;
-  void Function()? reConnect;
 
   final Obfuscation? _obfuscation;
   Uint8List _read = Uint8List(0);
@@ -37,8 +36,9 @@ class BaseTransformer {
       _obfuscation?.recv.encryptDecrypt(temp, 4);
       final length = temp.buffer.asByteData(0, 4).getInt32(0, Endian.little);
       if (length < 0) {
-        Log.w("error: length $length.");
-        reConnect?.call();
+        Log.e("error: length $length.");
+        _streamController.addError("error: length $length.");
+        dispose();
         _read = Uint8List(0);
         return;
       }
@@ -51,6 +51,8 @@ class BaseTransformer {
         final frame = Frame.parse(buffer, _obfuscation, key);
         _streamController.add(frame);
       } catch (e, s) {
+        _streamController.addError(e, s);
+        dispose();
         Log.e('parse error: $e\n$s');
       }
 

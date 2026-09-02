@@ -26,12 +26,6 @@ dependencies:
   nop: ^0.2.0+3
   meta: any
 
-dependency_overrides:
-  tg_api:
-    path: ../tg_api
-  # t:
-  #   path: ../t
-
 dev_dependencies:
   lints: ^6.0.0
   test: ^1.26.0

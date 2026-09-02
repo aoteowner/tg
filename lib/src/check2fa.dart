@@ -1,113 +1,112 @@
-import 'dart:convert';
-import 'dart:typed_data';
+// import 'dart:convert';
+// import 'dart:typed_data';
 
-import 'package:pointycastle/export.dart';
-import 'package:tg/src/extensions.dart';
-import 'package:tg_api/account.dart';
-import 'package:tg_api/api.dart';
-import 'package:tg_api/tg_api.dart';
+// import 'package:pointycastle/export.dart';
+// import 'package:tg/src/extensions.dart';
+// import 'package:tg_api/account.dart';
+// import 'package:tg_api/tg_api.dart';
 
-import 'crypto.dart';
-import 'private.dart';
+// import 'crypto.dart';
+// import 'private.dart';
 
-InputCheckPasswordSRP check2FA(Password accountPassword, String password) {
-  final currentAlgo = accountPassword.currentAlgo;
-  final newAlgo = accountPassword.newAlgo;
+// InputCheckPasswordSRP check2FA(Password accountPassword, String password) {
+//   final currentAlgo = accountPassword.currentAlgo;
+//   final newAlgo = accountPassword.newAlgo;
 
-  final algo =
-      currentAlgo != null &&
-          currentAlgo
-              is PasswordKdfAlgoSHA256SHA256PBKDF2HMACSHA512iter100000SHA256ModPow
-      ? currentAlgo
-      : newAlgo
-            as PasswordKdfAlgoSHA256SHA256PBKDF2HMACSHA512iter100000SHA256ModPow;
+//   final algo =
+//       currentAlgo != null &&
+//           currentAlgo
+//               is PasswordKdfAlgoSHA256SHA256PBKDF2HMACSHA512iter100000SHA256ModPow
+//       ? currentAlgo
+//       : newAlgo
+//             as PasswordKdfAlgoSHA256SHA256PBKDF2HMACSHA512iter100000SHA256ModPow;
 
-  if (algo == newAlgo) {
-    // TODO
-    // final saltRandom = Uint8List(32);
-    // rng.getBytes(saltRandom);
-    // final salt1 = [
-    //   ...algoTmp.salt1, /*...saltRandom*/
-    // ];
-  }
+//   if (algo == newAlgo) {
+//     // TODO
+//     // final saltRandom = Uint8List(32);
+//     // rng.getBytes(saltRandom);
+//     // final salt1 = [
+//     //   ...algoTmp.salt1, /*...saltRandom*/
+//     // ];
+//   }
 
-  final salt1 = [...algo.salt1];
-  final salt2 = [...algo.salt2];
+//   final salt1 = [...algo.salt1];
+//   final salt2 = [...algo.salt2];
 
-  final g = BigInt.from(algo.g);
-  final p = bigEndianInteger(algo.p);
+//   final g = BigInt.from(algo.g);
+//   final p = bigEndianInteger(algo.p);
 
-  checkGoodPrime(p, algo.g);
-  final passwordBytes = utf8.encode(password);
+//   checkGoodPrime(p, algo.g);
+//   final passwordBytes = utf8.encode(password);
 
-  final x1 = [...salt1, ...passwordBytes, ...salt1];
-  final hash0 = sha256(x1);
-  final x2 = [...salt2, ...hash0.take(32), ...salt2];
-  final hash = sha256(x2);
+//   final x1 = [...salt1, ...passwordBytes, ...salt1];
+//   final hash0 = sha256(x1);
+//   final x2 = [...salt2, ...hash0.take(32), ...salt2];
+//   final hash = sha256(x2);
 
-  final params = Pbkdf2Parameters(Uint8List.fromList(salt1), 100000, 64);
-  final derive = PBKDF2KeyDerivator(HMac.withDigest(SHA512Digest()));
+//   final params = Pbkdf2Parameters(Uint8List.fromList(salt1), 100000, 64);
+//   final derive = PBKDF2KeyDerivator(HMac.withDigest(SHA512Digest()));
 
-  derive.init(params);
+//   derive.init(params);
 
-  final pbkdf2 = derive.process(Uint8List.fromList(hash));
+//   final pbkdf2 = derive.process(Uint8List.fromList(hash));
 
-  final x3 = [...salt2, ...pbkdf2.take(64), ...salt2];
-  final x = bigEndianInteger(sha256(x3));
-  final v = g.modPow(x, p);
+//   final x3 = [...salt2, ...pbkdf2.take(64), ...salt2];
+//   final x = bigEndianInteger(sha256(x3));
+//   final v = g.modPow(x, p);
 
-  // If we're computing a new password
-  if (accountPassword.currentAlgo == null) {
-    return InputCheckPasswordSRP(a: v.to256Bytes(), srpId: 0, m1: Uint8List(0));
-  }
+//   // If we're computing a new password
+//   if (accountPassword.currentAlgo == null) {
+//     return InputCheckPasswordSRP(a: v.to256Bytes(), srpId: 0, m1: Uint8List(0));
+//   }
 
-  final gB = bigEndianInteger(accountPassword.srpB!);
-  final gB256 = gB.to256Bytes();
-  final g_256 = g.to256Bytes();
+//   final gB = bigEndianInteger(accountPassword.srpB!);
+//   final gB256 = gB.to256Bytes();
+//   final g_256 = g.to256Bytes();
 
-  final kh = sha256([...algo.p.take(256), ...g_256.take(256)]);
-  final k = bigEndianInteger(kh);
-  final kV = (k * v) % p;
+//   final kh = sha256([...algo.p.take(256), ...g_256.take(256)]);
+//   final k = bigEndianInteger(kh);
+//   final kV = (k * v) % p;
 
-  final a = bigEndianInteger(Int256.random().data);
-  final gA = g.modPow(a, p);
-  final gA256 = gA.to256Bytes();
+//   final a = bigEndianInteger(Int256.random().data);
+//   final gA = g.modPow(a, p);
+//   final gA256 = gA.to256Bytes();
 
-  final uux = sha256([...gA256, ...gB256]);
-  final u = bigEndianInteger(uux);
+//   final uux = sha256([...gA256, ...gB256]);
+//   final u = bigEndianInteger(uux);
 
-  var t = (gB - kV) % p;
+//   var t = (gB - kV) % p;
 
-  // Positive modulo, if the result is negative increment by p.
-  if (t.sign < 0) {
-    t += p;
-  }
+//   // Positive modulo, if the result is negative increment by p.
+//   if (t.sign < 0) {
+//     t += p;
+//   }
 
-  final sA = t.modPow(a + u * x, p);
-  final kA = sha256(sA.to256Bytes());
+//   final sA = t.modPow(a + u * x, p);
+//   final kA = sha256(sA.to256Bytes());
 
-  final phash = sha256(algo.p);
-  final h2 = sha256(g_256);
-  for (int i = 0; i < 32; i++) {
-    phash[i] ^= h2[i];
-  }
-  final hs1 = sha256(salt1);
-  final hs2 = sha256(salt2);
+//   final phash = sha256(algo.p);
+//   final h2 = sha256(g_256);
+//   for (int i = 0; i < 32; i++) {
+//     phash[i] ^= h2[i];
+//   }
+//   final hs1 = sha256(salt1);
+//   final hs2 = sha256(salt2);
 
-  final xf = [
-    ...phash.take(32),
-    ...hs1.take(32),
-    ...hs2.take(32),
-    ...gA256,
-    ...gB256,
-    ...kA.take(32),
-  ];
+//   final xf = [
+//     ...phash.take(32),
+//     ...hs1.take(32),
+//     ...hs2.take(32),
+//     ...gA256,
+//     ...gB256,
+//     ...kA.take(32),
+//   ];
 
-  final m1 = sha256(xf);
+//   final m1 = sha256(xf);
 
-  return InputCheckPasswordSRP(
-    a: gA256,
-    m1: Uint8List.fromList(m1),
-    srpId: accountPassword.srpId!,
-  );
-}
+//   return InputCheckPasswordSRP(
+//     a: gA256,
+//     m1: Uint8List.fromList(m1),
+//     srpId: accountPassword.srpId!,
+//   );
+// }

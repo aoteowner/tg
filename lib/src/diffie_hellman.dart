@@ -1,11 +1,10 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:nop/nop.dart' as l;
 import 'package:tg/src/extensions.dart';
 import 'package:tg/tg.dart';
 import 'package:tg_api/api.dart';
-import 'package:tg_api/tg_api.dart';
+import 'package:tg_api/mtproto_api.dart';
 
 import 'crypto.dart';
 import 'encoders.dart';
@@ -13,7 +12,7 @@ import 'frame.dart';
 import 'private.dart';
 import 'public_keys.dart';
 
-class AuthKeyClient extends ApiClient with Messager {
+class AuthKeyClient extends MtprotoApiClient with Messager {
   AuthKeyClient._(this.sender, this.obfuscation);
 
   factory AuthKeyClient(
@@ -320,7 +319,7 @@ class AuthKeyClient extends ApiClient with Messager {
     return ak;
   }
 
-  Future<AuthorizationKey> exchangeAndClosed() async {
+  Future<AuthorizationKey> exchangeAndClosed(int dc) async {
     final newNonce = Int256.random();
     final resPQ = await _reqPqMulti();
     await Future.delayed(const Duration(milliseconds: 200));
