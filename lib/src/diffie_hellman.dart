@@ -358,7 +358,7 @@ class AuthKeyClient extends MtprotoApiClient with Messager {
   late final tgTask = TgTask(this);
 
   @override
-  Future<Result<TlObject>> invoke(TlMethod method) {
+  Future<Result<TlObject>> invoke(TlMethod method,{int? position = 0}) {
     if (_isClosed) {
       return Future.value(
         Result.error(RpcError(errorCode: -1, errorMessage: 'closed.')),
